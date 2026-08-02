@@ -8,7 +8,8 @@ export default function AdminRekapPage() {
   const [izinToday, setIzinToday] = useState<any[]>([]);
   const [allAttendances, setAllAttendances] = useState<any[]>([]);
 
-  const today = new Date().toISOString().split('T')[0];
+  // Perbaikan: Gunakan toLocaleDateString agar sesuai dengan waktu Indonesia (WITA)
+  const today = new Date().toLocaleDateString('en-CA');
 
   const fetchData = async () => {
     setLoading(true);

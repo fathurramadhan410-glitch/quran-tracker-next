@@ -7,7 +7,7 @@ export default function AdminParticipantsPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [showNotif, setShowNotif] = useState(false);
   const [notifMsg, setNotifMsg] = useState('');
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
 
   const fetchData = async () => {
     setLoading(true);
