@@ -12,30 +12,50 @@ export default function DashboardPage() {
   const [endPage, setEndPage] = useState(1);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  
-  // State untuk Pop-up Notifikasi
   const [showNotif, setShowNotif] = useState(false);
 
   const fetchData = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
+    // 1. Ambil data profil user
     const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
       .single();
+    setProfile(profileData);
 
+    // 2. Ambil 5 log bacaan terakhir milik user ini
     const { data: logsData } = await supabase
       .from('reading_logs')
       .select('*')
       .eq('user_id', session.user.id)
       .order('created_at', { ascending: false })
       .limit(5);
-
-    setProfile(profileData);
     setLogs(logsData || []);
-    setStartPage(profileData?.current_page || 1);
+
+    // 3. LOGIKA RELAY: Cari end_page terakhir dari SEMUA USER agar tidak tabrakan
+    const { data: globalLastLog } = await supabase
+      .from('reading_logs')
+      .select('end_page')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    // Hitung halaman selanjutnya
+    let nextStartPage = 1;
+    if (globalLastLog) {
+      nextStartPage = globalLastLog.end_page >= 604 ? 604 : globalLastLog.end_page + 1;
+    }
+
+    setStartPage(nextStartPage);
+    setEndPage(nextStartPage); // Default end page sama dengan start page
+    
+    // Hitung Juz otomatis berdasarkan halaman selanjutnya
+    const autoJuz = Math.ceil(nextStartPage / 20);
+    setJuz(autoJuz > 30 ? 30 : autoJuz);
+
     setLoading(false);
   };
 
@@ -56,9 +76,9 @@ export default function DashboardPage() {
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA');
     
-    // Hitung streak
+    // Hitung streak pribadi
     let newStreak = profile.current_streak;
     if (profile.last_read_date) {
         const lastRead = new Date(profile.last_read_date);
@@ -71,7 +91,7 @@ export default function DashboardPage() {
         newStreak = 1;
     }
 
-    // 1. Insert Log
+    // 1. Insert Log Bacaan
     await supabase.from('reading_logs').insert({
       user_id: session.user.id,
       log_date: today,
@@ -82,7 +102,7 @@ export default function DashboardPage() {
       notes: notes
     });
 
-    // 2. Update Profile
+    // 2. Update Profil Pribadi
     await supabase.from('profiles').update({
       current_page: endPage,
       total_pages_read: profile.total_pages_read + pagesRead,
@@ -93,11 +113,9 @@ export default function DashboardPage() {
     }).eq('id', session.user.id);
 
     setNotes('');
-    setEndPage(startPage);
     setSubmitting(false);
     fetchData(); // Refresh data
     
-    // Tampilkan Pop-up Notifikasi & hilangkan setelah 3 detik
     setShowNotif(true);
     setTimeout(() => setShowNotif(false), 3000);
   };
@@ -107,7 +125,6 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 relative">
       
-      {/* Pop-up Notifikasi (Muncul di atas) */}
       {showNotif && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-green-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-center space-x-2 animate-bounce">
           <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -115,10 +132,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Kartu Statistik (Desain Modern Gradient) */}
+      {/* Kartu Statistik */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
-          <p className="text-indigo-100 text-xs md:text-sm">Halaman Saat Ini</p>
+          <p className="text-indigo-100 text-xs md:text-sm">Halaman Terakhir Dibaca</p>
           <h3 className="text-xl md:text-2xl font-bold mt-1">{profile.current_page} / 604</h3>
           <p className="text-xs text-indigo-200 mt-1">Juz {Math.ceil(profile.current_page / 20)}</p>
         </div>
@@ -152,13 +169,16 @@ export default function DashboardPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Halaman Awal</label>
-                <input type="number" value={startPage} onChange={(e) => setStartPage(Number(e.target.value))} required className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Halaman Awal (Otomatis)</label>
+                <input type="number" value={startPage} onChange={(e) => setStartPage(Number(e.target.value))} required className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-gray-50" readOnly />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Halaman Akhir</label>
                 <input type="number" value={endPage} onChange={(e) => setEndPage(Number(e.target.value))} required className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900" />
               </div>
+            </div>
+            <div className="bg-indigo-50 p-3 rounded-lg text-xs text-indigo-600">
+              💡 Halaman awal otomatis terisi berdasarkan halaman terakhir yang dibaca oleh murid lain. Lanjutkan membaca dari halaman tersebut.
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Catatan (Opsional)</label>
