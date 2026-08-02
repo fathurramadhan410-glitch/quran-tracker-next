@@ -14,11 +14,46 @@ export default function DashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
 
+  // State baru untuk data kolektif jamaah
+  const [globalTotalToday, setGlobalTotalToday] = useState(0);
+  const [globalLastPage, setGlobalLastPage] = useState(1);
+
+  const today = new Date().toLocaleDateString('en-CA');
+
+  const fetchGlobalData = async () => {
+    // 1. Ambil halaman terakhir dari SEMUA user (Relay)
+    const { data: lastLog } = await supabase
+      .from('reading_logs')
+      .select('end_page')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    const lastPage = lastLog?.end_page || 0;
+    const nextStartPage = lastPage >= 604 ? 604 : lastPage + 1;
+    
+    setGlobalLastPage(lastPage);
+    setStartPage(nextStartPage);
+    setEndPage(nextStartPage);
+    
+    const autoJuz = Math.ceil(nextStartPage / 20);
+    setJuz(autoJuz > 30 ? 30 : autoJuz);
+
+    // 2. Hitung Total Halaman Jamaah Hari Ini
+    const { data: todayLogs } = await supabase
+      .from('reading_logs')
+      .select('pages_read')
+      .eq('log_date', today);
+      
+    const totalToday = todayLogs?.reduce((acc, log) => acc + log.pages_read, 0) || 0;
+    setGlobalTotalToday(totalToday);
+  };
+
   const fetchData = async () => {
+    setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    // 1. Ambil data profil user
     const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
@@ -26,7 +61,6 @@ export default function DashboardPage() {
       .single();
     setProfile(profileData);
 
-    // 2. Ambil 5 log bacaan terakhir milik user ini
     const { data: logsData } = await supabase
       .from('reading_logs')
       .select('*')
@@ -35,32 +69,32 @@ export default function DashboardPage() {
       .limit(5);
     setLogs(logsData || []);
 
-    // 3. LOGIKA RELAY: Cari end_page terakhir dari SEMUA USER agar tidak tabrakan
-    const { data: globalLastLog } = await supabase
-      .from('reading_logs')
-      .select('end_page')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    // Hitung halaman selanjutnya
-    let nextStartPage = 1;
-    if (globalLastLog) {
-      nextStartPage = globalLastLog.end_page >= 604 ? 604 : globalLastLog.end_page + 1;
-    }
-
-    setStartPage(nextStartPage);
-    setEndPage(nextStartPage); // Default end page sama dengan start page
-    
-    // Hitung Juz otomatis berdasarkan halaman selanjutnya
-    const autoJuz = Math.ceil(nextStartPage / 20);
-    setJuz(autoJuz > 30 ? 30 : autoJuz);
-
+    await fetchGlobalData();
     setLoading(false);
   };
 
   useEffect(() => {
     fetchData();
+
+    // SETUP REALTIME: Update otomatis jika ada murid lain yang input bacaan
+    const channel = supabase
+      .channel('global-reading-logs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reading_logs' }, (payload) => {
+        // Saat ada insert baru, update halaman terakhir & total hari ini
+        const newLog = payload.new as any;
+        setGlobalLastPage(newLog.end_page);
+        setStartPage(newLog.end_page >= 604 ? 604 : newLog.end_page + 1);
+        setEndPage(newLog.end_page >= 604 ? 604 : newLog.end_page + 1);
+        const autoJuz = Math.ceil((newLog.end_page + 1) / 20);
+        setJuz(autoJuz > 30 ? 30 : autoJuz);
+        
+        setGlobalTotalToday((prev) => prev + newLog.pages_read);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleLog = async (e: React.FormEvent) => {
@@ -76,8 +110,6 @@ export default function DashboardPage() {
       return;
     }
 
-    const today = new Date().toLocaleDateString('en-CA');
-    
     // Hitung streak pribadi
     let newStreak = profile.current_streak;
     if (profile.last_read_date) {
@@ -135,22 +167,22 @@ export default function DashboardPage() {
       {/* Kartu Statistik */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
-          <p className="text-indigo-100 text-xs md:text-sm">Halaman Terakhir Dibaca</p>
-          <h3 className="text-xl md:text-2xl font-bold mt-1">{profile.current_page} / 604</h3>
-          <p className="text-xs text-indigo-200 mt-1">Juz {Math.ceil(profile.current_page / 20)}</p>
+          <p className="text-indigo-100 text-xs md:text-sm">Halaman Terakhir Jamaah</p>
+          <h3 className="text-xl md:text-2xl font-bold mt-1">{globalLastPage} / 604</h3>
+          <p className="text-xs text-indigo-200 mt-1">Lanjut dari Juz {juz}</p>
         </div>
         <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
-          <p className="text-emerald-100 text-xs md:text-sm">Total Dibaca</p>
-          <h3 className="text-xl md:text-2xl font-bold mt-1">{profile.total_pages_read}</h3>
-          <p className="text-xs text-emerald-200 mt-1">Halaman</p>
+          <p className="text-emerald-100 text-xs md:text-sm">Total Bacaan Jamaah Hari Ini</p>
+          <h3 className="text-xl md:text-2xl font-bold mt-1">{globalTotalToday} Hal</h3>
+          <p className="text-xs text-emerald-200 mt-1">Target 1 Juz (20 Hal)</p>
         </div>
         <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
-          <p className="text-orange-100 text-xs md:text-sm">Streak Beruntun</p>
+          <p className="text-orange-100 text-xs md:text-sm">Streak Pribadi</p>
           <h3 className="text-xl md:text-2xl font-bold mt-1">🔥 {profile.current_streak}</h3>
           <p className="text-xs text-orange-200 mt-1">Hari</p>
         </div>
         <div className="bg-gradient-to-br from-pink-500 to-rose-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
-          <p className="text-pink-100 text-xs md:text-sm">Total Poin</p>
+          <p className="text-pink-100 text-xs md:text-sm">Total Poin Pribadi</p>
           <h3 className="text-xl md:text-2xl font-bold mt-1">⭐ {profile.total_points}</h3>
           <p className="text-xs text-pink-200 mt-1">Poin Akhirat</p>
         </div>
@@ -177,8 +209,9 @@ export default function DashboardPage() {
                 <input type="number" value={endPage} onChange={(e) => setEndPage(Number(e.target.value))} required className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900" />
               </div>
             </div>
-            <div className="bg-indigo-50 p-3 rounded-lg text-xs text-indigo-600">
-              💡 Halaman awal otomatis terisi berdasarkan halaman terakhir yang dibaca oleh murid lain. Lanjutkan membaca dari halaman tersebut.
+            <div className="bg-indigo-50 p-3 rounded-lg text-xs text-indigo-600 flex items-start gap-2">
+              <span className="text-base">💡</span>
+              <span>Halaman awal otomatis terisi berdasarkan halaman terakhir yang dibaca oleh jamaah. Jika ada murid lain yang selesai membaca, form ini akan <b>otomatis berubah serentak (Realtime)</b>.</span>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Catatan (Opsional)</label>
@@ -192,7 +225,7 @@ export default function DashboardPage() {
 
         {/* Riwayat Bacaan */}
         <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Riwayat 5 Bacaan Terakhir</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Riwayat 5 Bacaan Terakhir (Anda)</h3>
           <div className="space-y-3">
             {logs.map((log) => (
               <div key={log.id} className="border-b border-gray-200 pb-2">
