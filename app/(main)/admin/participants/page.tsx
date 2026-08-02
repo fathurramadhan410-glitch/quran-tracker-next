@@ -7,6 +7,8 @@ export default function AdminParticipantsPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [showNotif, setShowNotif] = useState(false);
   const [notifMsg, setNotifMsg] = useState('');
+  
+  // Perbaikan Timezone
   const today = new Date().toLocaleDateString('en-CA');
 
   const fetchData = async () => {
@@ -33,7 +35,6 @@ export default function AdminParticipantsPage() {
   };
 
   const manualAttendance = async (userId: string, userName: string) => {
-    // Cek apakah sudah absen hari ini
     const { data: existing } = await supabase
       .from('attendances')
       .select('id')
@@ -52,7 +53,7 @@ export default function AdminParticipantsPage() {
       status: 'hadir'
     });
     triggerNotif(`Berhasil menandai ${userName} hadir hari ini!`);
-    fetchData(); // Refresh data untuk update UI jika perlu
+    fetchData();
   };
 
   if (loading) return <div className="text-center py-10 text-gray-500">Memuat data peserta...</div>;
@@ -60,7 +61,6 @@ export default function AdminParticipantsPage() {
   return (
     <div className="space-y-6 relative">
       
-      {/* Pop-up Notifikasi */}
       {showNotif && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-green-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-center space-x-2 animate-bounce">
           <span className="font-semibold text-sm">{notifMsg}</span>
@@ -73,12 +73,11 @@ export default function AdminParticipantsPage() {
           <p className="text-sm text-gray-500 mt-1">Total {users.length} pengguna terdaftar.</p>
         </div>
 
-        {/* Wrapper untuk Scroll Horizontal di HP */}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Nama Peserta</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Foto & Nama</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Alamat</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Pendidikan</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">No. Handphone</th>
@@ -89,7 +88,6 @@ export default function AdminParticipantsPage() {
               {users.map((u) => (
                 <tr key={u.id} className="hover:bg-gray-50 transition">
                   
-                  {/* Kolom Foto & Nama */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-4">
                       {u.profile_photo_url ? (
@@ -110,22 +108,18 @@ export default function AdminParticipantsPage() {
                     </div>
                   </td>
 
-                  {/* Kolom Alamat */}
                   <td className="px-6 py-4 whitespace-normal text-sm text-gray-600 max-w-[200px]">
                     {u.address || '-'}
                   </td>
 
-                  {/* Kolom Pendidikan */}
                   <td className="px-6 py-4 whitespace-normal text-sm text-gray-600 max-w-[150px]">
                     {u.education || '-'}
                   </td>
 
-                  {/* Kolom No. Handphone */}
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {u.phone_number || '-'}
                   </td>
 
-                  {/* Kolom Aksi */}
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex flex-col sm:flex-row gap-2 justify-center">
                       <button 

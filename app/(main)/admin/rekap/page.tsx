@@ -8,13 +8,12 @@ export default function AdminRekapPage() {
   const [izinToday, setIzinToday] = useState<any[]>([]);
   const [allAttendances, setAllAttendances] = useState<any[]>([]);
 
-  // Perbaikan: Gunakan toLocaleDateString agar sesuai dengan waktu Indonesia (WITA)
+  // Perbaikan Timezone
   const today = new Date().toLocaleDateString('en-CA');
 
   const fetchData = async () => {
     setLoading(true);
     
-    // Ambil absensi hari ini
     const { data: todayData } = await supabase
       .from('attendances')
       .select('*, profiles:user_id(name, email)')
@@ -26,7 +25,6 @@ export default function AdminRekapPage() {
       setIzinToday(todayData.filter(d => d.status === 'izin'));
     }
 
-    // Ambil 20 riwayat absensi terakhir
     const { data: historyData } = await supabase
       .from('attendances')
       .select('*, profiles:user_id(name)')
@@ -48,7 +46,6 @@ export default function AdminRekapPage() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        {/* Kartu Yang Hadir Hari Ini */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-gray-900">Hadir Hari Ini</h3>
@@ -71,7 +68,6 @@ export default function AdminRekapPage() {
           </div>
         </div>
 
-        {/* Kartu Yang Izin/Sakit Hari Ini */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-gray-900">Izin / Sakit Hari Ini</h3>
@@ -96,7 +92,6 @@ export default function AdminRekapPage() {
 
       </div>
 
-      {/* Riwayat Absensi Keseluruhan */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Riwayat 20 Absensi Terakhir</h3>
         <div className="overflow-x-auto">

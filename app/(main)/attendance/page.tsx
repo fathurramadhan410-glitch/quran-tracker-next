@@ -11,18 +11,17 @@ export default function AttendancePage() {
   const [totalIzin, setTotalIzin] = useState(0);
   const [reason, setReason] = useState('');
   
-  // State untuk Pop-up Notifikasi
   const [showNotif, setShowNotif] = useState(false);
   const [notifMsg, setNotifMsg] = useState('');
 
-  const today = new Date().toISOString().split('T')[0];
+  // Perbaikan Timezone (Gunakan toLocaleDateString 'en-CA' agar formatnya YYYY-MM-DD sesuai database)
+  const today = new Date().toLocaleDateString('en-CA');
 
   const fetchData = async () => {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    // Cek absensi hari ini
     const { data: todayData } = await supabase
       .from('attendances')
       .select('*')
@@ -32,7 +31,6 @@ export default function AttendancePage() {
 
     setTodayAttendance(todayData);
 
-    // Ambil riwayat absensi
     const { data: historyData } = await supabase
       .from('attendances')
       .select('*')
@@ -42,7 +40,6 @@ export default function AttendancePage() {
 
     setAttendances(historyData || []);
 
-    // Hitung statistik
     const { data: hadirData } = await supabase
       .from('attendances')
       .select('id', { count: 'exact' })
@@ -64,11 +61,10 @@ export default function AttendancePage() {
     fetchData();
   }, []);
 
-  // Fungsi untuk memunculkan notifikasi
   const triggerNotif = (msg: string) => {
     setNotifMsg(msg);
     setShowNotif(true);
-    setTimeout(() => setShowNotif(false), 3000); // Hilang dalam 3 detik
+    setTimeout(() => setShowNotif(false), 3000);
   };
 
   const handleCheckIn = async () => {
@@ -117,7 +113,6 @@ export default function AttendancePage() {
   return (
     <div className="space-y-6 relative">
       
-      {/* Pop-up Notifikasi */}
       {showNotif && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-green-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-center space-x-2 animate-bounce">
           <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -125,7 +120,6 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {/* Kartu Statistik (Desain Modern Gradient) */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
           <p className="text-emerald-100 text-xs md:text-sm">Total Hadir</p>
@@ -139,7 +133,6 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      {/* Form Absensi Hari Ini */}
       <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Absensi Hari Ini ({new Date(today).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })})</h3>
         
@@ -156,7 +149,6 @@ export default function AttendancePage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* Tombol Hadir */}
             <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl">
               <p className="text-gray-600 mb-4 text-center text-sm">Klik tombol di bawah jika Anda membaca Al-Qur'an hari ini.</p>
               <button 
@@ -168,7 +160,6 @@ export default function AttendancePage() {
               </button>
             </div>
 
-            {/* Form Izin */}
             <div className="flex flex-col p-6 border-2 border-dashed border-gray-300 rounded-xl">
               <p className="text-gray-600 mb-2 text-center text-sm">Tidak sempat membaca? Silakan isi alasan:</p>
               <form onSubmit={handleIzin} className="flex flex-col flex-1">
@@ -194,7 +185,6 @@ export default function AttendancePage() {
         )}
       </div>
 
-      {/* Riwayat Kehadiran */}
       <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Riwayat 10 Absensi Terakhir</h3>
         <div className="space-y-3">
