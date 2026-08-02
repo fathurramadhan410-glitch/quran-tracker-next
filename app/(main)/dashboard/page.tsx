@@ -17,13 +17,18 @@ export default function DashboardPage() {
   const [globalTotalToday, setGlobalTotalToday] = useState(0);
   const [globalLastPage, setGlobalLastPage] = useState(1);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [isParticipant, setIsParticipant] = useState(false); // Status ikut target atau tidak
 
   const today = new Date().toLocaleDateString('en-CA');
 
-  const fetchGlobalData = async () => {
+  const fetchGlobalData = async (participants: string[]) => {
+    if (participants.length === 0) return;
+
+    // 1. Ambil halaman terakhir hanya dari peserta target
     const { data: lastLog } = await supabase
       .from('reading_logs')
       .select('end_page')
+      .in('user_id', participants)
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
@@ -32,19 +37,18 @@ export default function DashboardPage() {
     const nextStartPage = lastPage >= 604 ? 604 : lastPage + 1;
     
     setGlobalLastPage(lastPage);
-    setStartPage(nextStartPage);
-    setEndPage(nextStartPage);
     
-    const autoJuz = Math.ceil(nextStartPage / 20);
-    setJuz(autoJuz > 30 ? 30 : autoJuz);
-
+    // 2. Hitung Total Halaman Jamaah Hari Ini (hanya dari peserta)
     const { data: todayLogs } = await supabase
       .from('reading_logs')
       .select('pages_read')
+      .in('user_id', participants)
       .eq('log_date', today);
       
     const totalToday = todayLogs?.reduce((acc, log) => acc + log.pages_read, 0) || 0;
     setGlobalTotalToday(totalToday);
+
+    return { nextStartPage, lastPage };
   };
 
   const fetchData = async () => {
@@ -59,17 +63,53 @@ export default function DashboardPage() {
       .single();
     setProfile(profileData);
 
-    // Cek Waktu Blokir (01:00 - 16:59 WITA)
-    // WITA = UTC+8
+    // Cek Waktu Blokir (01:00 - 16:00 WITA)
     const now = new Date();
     const utcHour = now.getUTCHours();
     const witaHour = (utcHour + 8) % 24;
-    
-    // Jika jam 1 sampai 16 (01:00 - 16:59) DAN bukan admin DAN tidak punya izin bypass
-    if (witaHour >= 1 && witaHour < 17 && !profileData?.is_admin && !profileData?.bypass_reading_block) {
+    if (witaHour >= 1 && witaHour < 16 && !profileData?.is_admin && !profileData?.bypass_reading_block) {
       setIsBlocked(true);
     } else {
       setIsBlocked(false);
+    }
+
+    // Cek apakah user ikut target aktif
+    const { data: activeTarget } = await supabase
+      .from('targets')
+      .select('id')
+      .eq('is_active', true)
+      .single();
+
+    let participantStatus = false;
+    let participantsIds: string[] = [];
+
+    if (activeTarget) {
+      const { data: participantData } = await supabase
+        .from('target_participants')
+        .select('user_id')
+        .eq('target_id', activeTarget.id);
+      
+      participantsIds = participantData?.map(p => p.user_id) || [];
+      participantStatus = participantsIds.includes(session.user.id);
+    }
+
+    setIsParticipant(participantStatus);
+
+    // Jika dia peserta, ambil data global (relay). Jika tidak, ambil data individu.
+    if (participantStatus) {
+      const globalData = await fetchGlobalData(participantsIds);
+      if (globalData) {
+        setStartPage(globalData.nextStartPage);
+        setEndPage(globalData.nextStartPage);
+        const autoJuz = Math.ceil(globalData.nextStartPage / 20);
+        setJuz(autoJuz > 30 ? 30 : autoJuz);
+      }
+    } else {
+      // Mode Individu
+      const individualStart = profileData?.current_page || 1;
+      setStartPage(individualStart);
+      setEndPage(individualStart);
+      setJuz(Math.ceil(individualStart / 20) || 1);
     }
 
     const { data: logsData } = await supabase
@@ -80,30 +120,40 @@ export default function DashboardPage() {
       .limit(5);
     setLogs(logsData || []);
 
-    await fetchGlobalData();
     setLoading(false);
   };
 
   useEffect(() => {
     fetchData();
 
+    // Realtime hanya merespon jika user adalah peserta target
     const channel = supabase
       .channel('global-reading-logs')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reading_logs' }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reading_logs' }, async (payload) => {
         const newLog = payload.new as any;
-        setGlobalLastPage(newLog.end_page);
-        setStartPage(newLog.end_page >= 604 ? 604 : newLog.end_page + 1);
-        setEndPage(newLog.end_page >= 604 ? 604 : newLog.end_page + 1);
-        const autoJuz = Math.ceil((newLog.end_page + 1) / 20);
-        setJuz(autoJuz > 30 ? 30 : autoJuz);
-        setGlobalTotalToday((prev) => prev + newLog.pages_read);
+        
+        // Cek apakah yang input adalah peserta target
+        const { data: activeTarget } = await supabase.from('targets').select('id').eq('is_active', true).single();
+        if (activeTarget) {
+          const { data: p } = await supabase.from('target_participants').select('user_id').eq('target_id', activeTarget.id).eq('user_id', newLog.user_id).single();
+          if (p && isParticipant) {
+            // Update UI realtime jika dia peserta
+            setGlobalLastPage(newLog.end_page);
+            const next = newLog.end_page >= 604 ? 604 : newLog.end_page + 1;
+            setStartPage(next);
+            setEndPage(next);
+            const autoJuz = Math.ceil(next / 20);
+            setJuz(autoJuz > 30 ? 30 : autoJuz);
+            setGlobalTotalToday((prev) => prev + newLog.pages_read);
+          }
+        }
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isParticipant]);
 
   const handleLog = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,18 +219,46 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Kartu Statistik */}
+      {/* Banner Peringatan Belum Ikut Target */}
+      {!isParticipant && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-xl flex items-center gap-3">
+          <span className="text-2xl">⚠️</span>
+          <div>
+            <p className="font-bold text-yellow-800 text-sm">Anda Belum Mengikuti Target Khatam</p>
+            <p className="text-xs text-yellow-700">Bacaan Anda saat ini bersifat individu. Silakan ikut target khatam di halaman Target agar bacaan Anda tersambung dengan jamaah dan masuk hitungan total kolektif.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Kartu Statistik (Dinamis sesuai status peserta) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
-          <p className="text-indigo-100 text-xs md:text-sm">Halaman Terakhir Jamaah</p>
-          <h3 className="text-xl md:text-2xl font-bold mt-1">{globalLastPage} / 604</h3>
-          <p className="text-xs text-indigo-200 mt-1">Lanjut dari Juz {juz}</p>
-        </div>
-        <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
-          <p className="text-emerald-100 text-xs md:text-sm">Total Bacaan Jamaah Hari Ini</p>
-          <h3 className="text-xl md:text-2xl font-bold mt-1">{globalTotalToday} Hal</h3>
-          <p className="text-xs text-emerald-200 mt-1">Target 1 Juz (20 Hal)</p>
-        </div>
+        {isParticipant ? (
+          <>
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
+              <p className="text-indigo-100 text-xs md:text-sm">Halaman Terakhir Jamaah</p>
+              <h3 className="text-xl md:text-2xl font-bold mt-1">{globalLastPage} / 604</h3>
+              <p className="text-xs text-indigo-200 mt-1">Lanjut dari Juz {juz}</p>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
+              <p className="text-emerald-100 text-xs md:text-sm">Total Bacaan Jamaah Hari Ini</p>
+              <h3 className="text-xl md:text-2xl font-bold mt-1">{globalTotalToday} Hal</h3>
+              <p className="text-xs text-emerald-200 mt-1">Target 1 Juz (20 Hal)</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
+              <p className="text-indigo-100 text-xs md:text-sm">Halaman Saat Ini (Individu)</p>
+              <h3 className="text-xl md:text-2xl font-bold mt-1">{profile.current_page} / 604</h3>
+              <p className="text-xs text-indigo-200 mt-1">Juz {Math.ceil(profile.current_page / 20)}</p>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
+              <p className="text-emerald-100 text-xs md:text-sm">Total Dibaca (Individu)</p>
+              <h3 className="text-xl md:text-2xl font-bold mt-1">{profile.total_pages_read}</h3>
+              <p className="text-xs text-emerald-200 mt-1">Halaman</p>
+            </div>
+          </>
+        )}
         <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
           <p className="text-orange-100 text-xs md:text-sm">Streak Pribadi</p>
           <h3 className="text-xl md:text-2xl font-bold mt-1">🔥 {profile.current_streak}</h3>
@@ -203,10 +281,10 @@ export default function DashboardPage() {
               <div className="text-5xl mb-4">⏳</div>
               <h3 className="text-lg font-bold text-red-700 mb-2">Form Bacaan Sedang Dikunci</h3>
               <p className="text-sm text-red-600 mb-4">
-                Sesuai aturan kedisiplinan, input bacaan hanya dibuka selepas Magrib (pukul 17:00 WITA) hingga pukul 01:00 WITA.
+                Sesuai aturan kedisiplinan, input bacaan dibuka mulai pukul <b>16:00 WITA (4 Sore)</b> hingga pukul <b>01:00 WITA (1 Malam)</b>.
               </p>
               <p className="text-xs text-gray-500 mt-4">
-                Jika Anda berhalangan membaca malam ini dan ingin mengaji di waktu siang, silakan hubungi Admin/Guru untuk meminta izin akses khusus.
+                Jika Anda berhalangan membaca di waktu sore/malam dan ingin mengaji di waktu siang, silakan hubungi Admin/Guru untuk meminta izin akses khusus.
               </p>
             </div>
           ) : (
@@ -219,17 +297,30 @@ export default function DashboardPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Halaman Awal (Otomatis)</label>
-                  <input type="number" value={startPage} onChange={(e) => setStartPage(Number(e.target.value))} required className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-gray-50" readOnly />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Halaman Awal {isParticipant ? '(Otomatis Relay)' : '(Individu)'}
+                  </label>
+                  <input 
+                    type="number" 
+                    value={startPage} 
+                    onChange={(e) => setStartPage(Number(e.target.value))} 
+                    required 
+                    className={`w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 ${isParticipant ? 'bg-gray-50' : 'bg-white'}`} 
+                    readOnly={isParticipant} 
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Halaman Akhir</label>
                   <input type="number" value={endPage} onChange={(e) => setEndPage(Number(e.target.value))} required className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900" />
                 </div>
               </div>
-              <div className="bg-indigo-50 p-3 rounded-lg text-xs text-indigo-600 flex items-start gap-2">
+              <div className={`p-3 rounded-lg text-xs flex items-start gap-2 ${isParticipant ? 'bg-indigo-50 text-indigo-600' : 'bg-yellow-50 text-yellow-700'}`}>
                 <span className="text-base">💡</span>
-                <span>Halaman awal otomatis terisi berdasarkan halaman terakhir yang dibaca oleh jamaah. Jika ada murid lain yang selesai membaca, form ini akan <b>otomatis berubah serentak (Realtime)</b>.</span>
+                {isParticipant ? (
+                  <span>Halaman awal otomatis terisi berdasarkan halaman terakhir yang dibaca oleh jamaah. Jika ada murid lain yang selesai membaca, form ini akan <b>otomatis berubah serentak (Realtime)</b>.</span>
+                ) : (
+                  <span>Karena Anda belum ikut target khatam, form ini bersifat individu dan tidak tersambung ke halaman jamaah.</span>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Catatan (Opsional)</label>
