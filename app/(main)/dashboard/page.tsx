@@ -14,14 +14,13 @@ export default function DashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
 
-  // State baru untuk data kolektif jamaah
   const [globalTotalToday, setGlobalTotalToday] = useState(0);
   const [globalLastPage, setGlobalLastPage] = useState(1);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   const today = new Date().toLocaleDateString('en-CA');
 
   const fetchGlobalData = async () => {
-    // 1. Ambil halaman terakhir dari SEMUA user (Relay)
     const { data: lastLog } = await supabase
       .from('reading_logs')
       .select('end_page')
@@ -39,7 +38,6 @@ export default function DashboardPage() {
     const autoJuz = Math.ceil(nextStartPage / 20);
     setJuz(autoJuz > 30 ? 30 : autoJuz);
 
-    // 2. Hitung Total Halaman Jamaah Hari Ini
     const { data: todayLogs } = await supabase
       .from('reading_logs')
       .select('pages_read')
@@ -61,6 +59,19 @@ export default function DashboardPage() {
       .single();
     setProfile(profileData);
 
+    // Cek Waktu Blokir (01:00 - 16:59 WITA)
+    // WITA = UTC+8
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const witaHour = (utcHour + 8) % 24;
+    
+    // Jika jam 1 sampai 16 (01:00 - 16:59) DAN bukan admin DAN tidak punya izin bypass
+    if (witaHour >= 1 && witaHour < 17 && !profileData?.is_admin && !profileData?.bypass_reading_block) {
+      setIsBlocked(true);
+    } else {
+      setIsBlocked(false);
+    }
+
     const { data: logsData } = await supabase
       .from('reading_logs')
       .select('*')
@@ -76,18 +87,15 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData();
 
-    // SETUP REALTIME: Update otomatis jika ada murid lain yang input bacaan
     const channel = supabase
       .channel('global-reading-logs')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reading_logs' }, (payload) => {
-        // Saat ada insert baru, update halaman terakhir & total hari ini
         const newLog = payload.new as any;
         setGlobalLastPage(newLog.end_page);
         setStartPage(newLog.end_page >= 604 ? 604 : newLog.end_page + 1);
         setEndPage(newLog.end_page >= 604 ? 604 : newLog.end_page + 1);
         const autoJuz = Math.ceil((newLog.end_page + 1) / 20);
         setJuz(autoJuz > 30 ? 30 : autoJuz);
-        
         setGlobalTotalToday((prev) => prev + newLog.pages_read);
       })
       .subscribe();
@@ -110,7 +118,6 @@ export default function DashboardPage() {
       return;
     }
 
-    // Hitung streak pribadi
     let newStreak = profile.current_streak;
     if (profile.last_read_date) {
         const lastRead = new Date(profile.last_read_date);
@@ -123,7 +130,6 @@ export default function DashboardPage() {
         newStreak = 1;
     }
 
-    // 1. Insert Log Bacaan
     await supabase.from('reading_logs').insert({
       user_id: session.user.id,
       log_date: today,
@@ -134,7 +140,6 @@ export default function DashboardPage() {
       notes: notes
     });
 
-    // 2. Update Profil Pribadi
     await supabase.from('profiles').update({
       current_page: endPage,
       total_pages_read: profile.total_pages_read + pagesRead,
@@ -146,7 +151,7 @@ export default function DashboardPage() {
 
     setNotes('');
     setSubmitting(false);
-    fetchData(); // Refresh data
+    fetchData(); 
     
     setShowNotif(true);
     setTimeout(() => setShowNotif(false), 3000);
@@ -189,38 +194,52 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Form Input */}
+        {/* Form Input / Pesan Blokir */}
         <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Catat Bacaan Hari Ini</h3>
-          <form onSubmit={handleLog} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Juz Ke-</label>
-              <select value={juz} onChange={(e) => setJuz(Number(e.target.value))} className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white">
-                {Array.from({length: 30}, (_, i) => i + 1).map(j => <option key={j} value={j}>Juz {j}</option>)}
-              </select>
+          
+          {isBlocked ? (
+            <div className="bg-red-50 border-2 border-dashed border-red-200 rounded-xl p-6 text-center">
+              <div className="text-5xl mb-4">⏳</div>
+              <h3 className="text-lg font-bold text-red-700 mb-2">Form Bacaan Sedang Dikunci</h3>
+              <p className="text-sm text-red-600 mb-4">
+                Sesuai aturan kedisiplinan, input bacaan hanya dibuka selepas Magrib (pukul 17:00 WITA) hingga pukul 01:00 WITA.
+              </p>
+              <p className="text-xs text-gray-500 mt-4">
+                Jika Anda berhalangan membaca malam ini dan ingin mengaji di waktu siang, silakan hubungi Admin/Guru untuk meminta izin akses khusus.
+              </p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+          ) : (
+            <form onSubmit={handleLog} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Halaman Awal (Otomatis)</label>
-                <input type="number" value={startPage} onChange={(e) => setStartPage(Number(e.target.value))} required className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-gray-50" readOnly />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Juz Ke-</label>
+                <select value={juz} onChange={(e) => setJuz(Number(e.target.value))} className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white">
+                  {Array.from({length: 30}, (_, i) => i + 1).map(j => <option key={j} value={j}>Juz {j}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Halaman Awal (Otomatis)</label>
+                  <input type="number" value={startPage} onChange={(e) => setStartPage(Number(e.target.value))} required className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-gray-50" readOnly />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Halaman Akhir</label>
+                  <input type="number" value={endPage} onChange={(e) => setEndPage(Number(e.target.value))} required className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900" />
+                </div>
+              </div>
+              <div className="bg-indigo-50 p-3 rounded-lg text-xs text-indigo-600 flex items-start gap-2">
+                <span className="text-base">💡</span>
+                <span>Halaman awal otomatis terisi berdasarkan halaman terakhir yang dibaca oleh jamaah. Jika ada murid lain yang selesai membaca, form ini akan <b>otomatis berubah serentak (Realtime)</b>.</span>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Halaman Akhir</label>
-                <input type="number" value={endPage} onChange={(e) => setEndPage(Number(e.target.value))} required className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Catatan (Opsional)</label>
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"></textarea>
               </div>
-            </div>
-            <div className="bg-indigo-50 p-3 rounded-lg text-xs text-indigo-600 flex items-start gap-2">
-              <span className="text-base">💡</span>
-              <span>Halaman awal otomatis terisi berdasarkan halaman terakhir yang dibaca oleh jamaah. Jika ada murid lain yang selesai membaca, form ini akan <b>otomatis berubah serentak (Realtime)</b>.</span>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Catatan (Opsional)</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"></textarea>
-            </div>
-            <button type="submit" disabled={submitting} className="w-full bg-indigo-600 text-white p-3 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 cursor-pointer transition">
-              {submitting ? 'Menyimpan...' : 'Simpan Log Bacaan'}
-            </button>
-          </form>
+              <button type="submit" disabled={submitting} className="w-full bg-indigo-600 text-white p-3 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 cursor-pointer transition">
+                {submitting ? 'Menyimpan...' : 'Simpan Log Bacaan'}
+              </button>
+            </form>
+          )}
         </div>
 
         {/* Riwayat Bacaan */}

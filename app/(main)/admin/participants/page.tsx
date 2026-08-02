@@ -8,9 +8,7 @@ export default function AdminParticipantsPage() {
   const [showNotif, setShowNotif] = useState(false);
   const [notifMsg, setNotifMsg] = useState('');
   
-  // Perhitungan Tanggal yang 100% Akurat
-  const d = new Date();
-  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = new Date().toLocaleDateString('en-CA');
 
   const fetchData = async () => {
     setLoading(true);
@@ -32,6 +30,13 @@ export default function AdminParticipantsPage() {
   const toggleActive = async (userId: string, currentStatus: boolean) => {
     await supabase.from('profiles').update({ is_active: !currentStatus }).eq('id', userId);
     triggerNotif(`Akun berhasil ${!currentStatus ? 'diaktifkan' : 'dinonaktifkan'}!`);
+    fetchData();
+  };
+
+  // Fungsi baru untuk bypass blokir waktu baca
+  const toggleBypass = async (userId: string, userName: string, currentStatus: boolean) => {
+    await supabase.from('profiles').update({ bypass_reading_block: !currentStatus }).eq('id', userId);
+    triggerNotif(`Akses baca siang untuk ${userName} berhasil ${!currentStatus ? 'DIBUKA' : 'DITUTUP'}!`);
     fetchData();
   };
 
@@ -79,9 +84,7 @@ export default function AdminParticipantsPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Foto & Nama</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Alamat</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Pendidikan</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">No. Handphone</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Kontak</th>
                 <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
@@ -99,10 +102,11 @@ export default function AdminParticipantsPage() {
                         </div>
                       )}
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-bold text-gray-900 text-sm">{u.name}</h3>
                           {u.is_admin && <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">Admin</span>}
                           {!u.is_active && <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">Nonaktif</span>}
+                          {u.bypass_reading_block && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">Izin Baca Siang</span>}
                         </div>
                         <p className="text-xs text-gray-400 mt-0.5">{u.email}</p>
                       </div>
@@ -110,28 +114,31 @@ export default function AdminParticipantsPage() {
                   </td>
 
                   <td className="px-6 py-4 whitespace-normal text-sm text-gray-600 max-w-[200px]">
-                    {u.address || '-'}
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-normal text-sm text-gray-600 max-w-[150px]">
-                    {u.education || '-'}
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {u.phone_number || '-'}
+                    📞 {u.phone_number || '-'} <br/> 🏠 {u.address || '-'}
                   </td>
 
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex flex-col sm:flex-row gap-2 justify-center">
                       <button 
                         onClick={() => manualAttendance(u.id, u.name)} 
-                        className="bg-green-50 text-green-700 text-xs font-bold px-4 py-2 rounded-lg hover:bg-green-100 transition border border-green-100 whitespace-nowrap"
+                        className="bg-green-50 text-green-700 text-xs font-bold px-3 py-2 rounded-lg hover:bg-green-100 transition border border-green-100 whitespace-nowrap"
                       >
-                        ✔️ Tandai Hadir
+                        ✔️ Hadir
                       </button>
+                      
+                      {/* Tombol Bypass Baca Siang (Hanya untuk Murid) */}
+                      {!u.is_admin && (
+                        <button 
+                          onClick={() => toggleBypass(u.id, u.name, u.bypass_reading_block)} 
+                          className={`${u.bypass_reading_block ? 'bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-100' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-100'} text-xs font-bold px-3 py-2 rounded-lg transition border whitespace-nowrap`}
+                        >
+                          {u.bypass_reading_block ? '🔒 Tutup Akses' : '🔓 Buka Akses Siang'}
+                        </button>
+                      )}
+
                       <button 
                         onClick={() => toggleActive(u.id, u.is_active)} 
-                        className={`${u.is_active ? 'bg-red-50 text-red-700 hover:bg-red-100 border-red-100' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-100'} text-xs font-bold px-4 py-2 rounded-lg transition border whitespace-nowrap`}
+                        className={`${u.is_active ? 'bg-red-50 text-red-700 hover:bg-red-100 border-red-100' : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-100'} text-xs font-bold px-3 py-2 rounded-lg transition border whitespace-nowrap`}
                       >
                         {u.is_active ? '🚫 Nonaktifkan' : '✅ Aktifkan'}
                       </button>
@@ -143,7 +150,7 @@ export default function AdminParticipantsPage() {
               
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500 text-sm">Belum ada peserta terdaftar.</td>
+                  <td colSpan={3} className="px-6 py-12 text-center text-gray-500 text-sm">Belum ada peserta terdaftar.</td>
                 </tr>
               )}
             </tbody>
