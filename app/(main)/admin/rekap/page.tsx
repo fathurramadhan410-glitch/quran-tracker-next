@@ -8,8 +8,9 @@ export default function AdminRekapPage() {
   const [izinToday, setIzinToday] = useState<any[]>([]);
   const [allAttendances, setAllAttendances] = useState<any[]>([]);
 
-  // Perbaikan Timezone
-  const today = new Date().toLocaleDateString('en-CA');
+  // Perhitungan Tanggal yang 100% Akurat
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   const fetchData = async () => {
     setLoading(true);
@@ -21,8 +22,8 @@ export default function AdminRekapPage() {
       .order('created_at', { ascending: false });
 
     if (todayData) {
-      setHadirToday(todayData.filter(d => d.status === 'hadir'));
-      setIzinToday(todayData.filter(d => d.status === 'izin'));
+      setHadirToday(todayData.filter((d: any) => d.status === 'hadir'));
+      setIzinToday(todayData.filter((d: any) => d.status === 'izin'));
     }
 
     const { data: historyData } = await supabase

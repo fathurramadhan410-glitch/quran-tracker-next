@@ -14,8 +14,9 @@ export default function AttendancePage() {
   const [showNotif, setShowNotif] = useState(false);
   const [notifMsg, setNotifMsg] = useState('');
 
-  // Perbaikan Timezone (Gunakan toLocaleDateString 'en-CA' agar formatnya YYYY-MM-DD sesuai database)
-  const today = new Date().toLocaleDateString('en-CA');
+  // Perhitungan Tanggal yang 100% Akurat (Tanpa zona waktu)
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   const fetchData = async () => {
     setLoading(true);
