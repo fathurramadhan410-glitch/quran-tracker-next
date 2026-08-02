@@ -15,9 +15,10 @@ export default function AdminRekapPage() {
   const fetchData = async () => {
     setLoading(true);
     
+    // Perbaikan: Hanya memanggil kolom 'name' karena 'email' tidak ada di tabel profiles
     const { data: todayData } = await supabase
       .from('attendances')
-      .select('*, profiles:user_id(name, email)')
+      .select('*, profiles:user_id(name)')
       .eq('date', today)
       .order('created_at', { ascending: false });
 
@@ -60,7 +61,6 @@ export default function AdminRekapPage() {
                 </div>
                 <div>
                   <span className="font-medium text-gray-900 text-sm block">{att.profiles?.name}</span>
-                  <span className="text-xs text-gray-400">{att.profiles?.email}</span>
                 </div>
                 <span className="ml-auto text-green-600 text-sm font-bold">✔️ Hadir</span>
               </div>
