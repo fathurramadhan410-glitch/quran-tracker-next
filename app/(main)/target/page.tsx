@@ -264,7 +264,7 @@ export default function TargetPage() {
                   </span>
                 ) : (
                   <button onClick={handleJoin} disabled={submitting} className="bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition text-sm font-bold cursor-pointer shadow-md">
-                    Ikut Target Ini
+                    Ikuti Target Ini
                   </button>
                 )}
               </div>

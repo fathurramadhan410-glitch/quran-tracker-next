@@ -20,7 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
       
       setUser(profile);
       setLoading(false);
@@ -50,22 +50,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="fixed inset-0 bg-black/50 z-20 md:hidden" onClick={() => setSidebarOpen(false)}></div>
       )}
 
-      <aside className={`fixed z-30 w-64 bg-gray-800 text-white flex flex-col transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-16 flex items-center justify-between border-b border-gray-700 px-4">
+      <aside className={`fixed md:relative z-30 w-64 bg-gray-800 text-white flex flex-col h-screen flex-shrink-0 transform transition-transform duration-300 ease-in-out md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="h-16 flex items-center justify-between border-b border-gray-700 px-4 flex-shrink-0">
           <span className="text-xl font-bold text-emerald-400">Qur'an Tracker</span>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
+        
         <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
           <Link href="/dashboard" onClick={() => setSidebarOpen(false)} className="block py-2.5 px-4 rounded hover:bg-gray-700 text-gray-300">📊 Dashboard</Link>
           <Link href="/attendance" onClick={() => setSidebarOpen(false)} className="block py-2.5 px-4 rounded hover:bg-gray-700 text-gray-300">📅 Kehadiran</Link>
           <Link href="/target" onClick={() => setSidebarOpen(false)} className="block py-2.5 px-4 rounded hover:bg-gray-700 text-gray-300">🎯 Target Khatam</Link>
+          
+          {/* MENU QUIZ HANYA UNTUK MURID (NON-ADMIN) */}
+          {!user?.is_admin && (
+            <Link href="/quiz" onClick={() => setSidebarOpen(false)} className="block py-2.5 px-4 rounded hover:bg-gray-700 text-gray-300">🧠 Quiz Harian</Link>
+          )}
+
           <Link href="/leaderboard" onClick={() => setSidebarOpen(false)} className="block py-2.5 px-4 rounded hover:bg-gray-700 text-gray-300">🏆 Papan Peringkat</Link>
           <Link href="/quran" onClick={() => setSidebarOpen(false)} className="block py-2.5 px-4 rounded hover:bg-gray-700 text-gray-300">📖 Baca Al-Qur'an</Link>
           <Link href="/profile" onClick={() => setSidebarOpen(false)} className="block py-2.5 px-4 rounded hover:bg-gray-700 text-gray-300">⚙️ Profil</Link>
-          <Link href="/quiz" onClick={() => setSidebarOpen(false)} className="block py-2.5 px-4 rounded hover:bg-gray-700 text-gray-300">🧠 Quiz Harian</Link>
-                    {user?.is_admin && (
+          
+          {user?.is_admin && (
             <div className="pt-4 mt-4 border-t border-gray-700">
               <p className="px-4 text-xs font-semibold text-gray-500 uppercase mb-2">Menu Admin</p>
               <Link href="/admin/participants" onClick={() => setSidebarOpen(false)} className="flex items-center py-2.5 px-4 rounded hover:bg-gray-700 text-gray-300">👥 Data Peserta</Link>
@@ -73,7 +80,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           )}
         </nav>
-        <div className="p-4 border-t border-gray-700">
+        
+        <div className="p-4 border-t border-gray-700 flex-shrink-0">
           <button onClick={handleLogout} className="w-full text-left py-2.5 px-4 rounded hover:bg-red-600 text-gray-300 hover:text-white">🚪 Keluar</button>
         </div>
       </aside>
