@@ -10,19 +10,12 @@ export default function Register() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // State untuk Notifikasi Pop-up
-  const [showNotif, setShowNotif] = useState(false);
-  const [notifMsg, setNotifMsg] = useState('');
-  const [notifType, setNotifType] = useState<'success' | 'error'>('error');
+  // State untuk Modal Pop-up
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState<'success' | 'error'>('success');
+  const [modalMsg, setModalMsg] = useState('');
   
   const router = useRouter();
-
-  const triggerNotif = (msg: string, type: 'success' | 'error') => {
-    setNotifMsg(msg);
-    setNotifType(type);
-    setShowNotif(true);
-    setTimeout(() => setShowNotif(false), 3000);
-  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,31 +32,54 @@ export default function Register() {
     });
 
     if (error) {
-      // Jika gagal daftar (misal: email sudah dipakai)
-      triggerNotif("Gagal mendaftar! Email mungkin sudah terdaftar.", 'error');
+      setModalType('error');
+      setModalMsg("Email mungkin sudah terdaftar atau format tidak valid.");
+      setShowModal(true);
       setLoading(false);
     } else {
-      // Jika berhasil daftar
-      triggerNotif("Pendaftaran berhasil! Mengalihkan ke halaman login...", 'success');
-      // Delay 1.5 detik agar user sempat membaca notif
+      setModalType('success');
+      setModalMsg("Pendaftaran berhasil! Mengalihkan ke halaman login...");
+      setShowModal(true);
       setTimeout(() => {
         router.push('/login');
-      }, 1500);
+      }, 2000);
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       
-      {/* Pop-up Notifikasi */}
-      {showNotif && (
-        <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm px-5 py-4 rounded-xl shadow-2xl flex items-center justify-center space-x-3 animate-bounce text-white ${notifType === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
-          {notifType === 'success' ? (
-            <svg className="w-7 h-7 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          ) : (
-            <svg className="w-7 h-7 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          )}
-          <span className="font-semibold text-sm md:text-base">{notifMsg}</span>
+      {/* Modal Pop-up Notifikasi */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center animate-bounce">
+            {modalType === 'success' ? (
+              <>
+                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center">
+                  <svg className="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <h4 className="text-xl font-bold text-gray-800 mb-2">Registrasi Berhasil!</h4>
+                <p className="text-gray-500 mb-6 text-sm">{modalMsg}</p>
+                <div className="flex justify-center">
+                  <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
+                  <svg className="w-12 h-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </div>
+                <h4 className="text-xl font-bold text-gray-800 mb-2">Registrasi Gagal!</h4>
+                <p className="text-gray-500 mb-6 text-sm">{modalMsg}</p>
+                <button 
+                  onClick={() => setShowModal(false)} 
+                  className="bg-indigo-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-indigo-700 transition text-sm"
+                >
+                  Coba Lagi
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
