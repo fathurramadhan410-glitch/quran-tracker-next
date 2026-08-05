@@ -5,8 +5,8 @@ import { supabase } from '@/lib/supabaseClient';
 export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [dateAttendance, setDateAttendance] = useState<any>(null);
+  const [scanning, setScanning] = useState(false);
+  const [todayAttendance, setTodayAttendance] = useState<any>(null);
   const [attendances, setAttendances] = useState<any[]>([]);
   const [totalHadir, setTotalHadir] = useState(0);
   const [totalIzin, setTotalIzin] = useState(0);
@@ -23,17 +23,15 @@ export default function AttendancePage() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    // Cek absensi di tanggal yang dipilih
     const { data: dateData } = await supabase
       .from('attendances')
       .select('*')
       .eq('user_id', session.user.id)
       .eq('date', date)
-      .single();
+      .maybeSingle();
 
-    setDateAttendance(dateData);
+    setTodayAttendance(dateData);
 
-    // Ambil riwayat absensi
     const { data: historyData } = await supabase
       .from('attendances')
       .select('*')
@@ -43,7 +41,6 @@ export default function AttendancePage() {
 
     setAttendances(historyData || []);
 
-    // Hitung statistik
     const { data: hadirData } = await supabase
       .from('attendances')
       .select('id', { count: 'exact' })
@@ -62,12 +59,8 @@ export default function AttendancePage() {
   };
 
   useEffect(() => {
-    setSelectedDate(today);
+    fetchData(today);
   }, []);
-
-  useEffect(() => {
-    if (selectedDate) fetchData(selectedDate);
-  }, [selectedDate]);
 
   const triggerNotif = (msg: string) => {
     setNotifMsg(msg);
@@ -76,21 +69,28 @@ export default function AttendancePage() {
   };
 
   const handleCheckIn = async () => {
-    setSubmitting(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    // Mulai animasi scanning
+    setScanning(true);
+    
+    // Delay 2 detik untuk simulasi sidik jari
+    setTimeout(async () => {
+      setSubmitting(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-    const { error } = await supabase.from('attendances').insert({
-      user_id: session.user.id,
-      date: selectedDate,
-      status: 'hadir'
-    });
+      const { error } = await supabase.from('attendances').insert({
+        user_id: session.user.id,
+        date: today,
+        status: 'hadir'
+      });
 
-    setSubmitting(false);
-    if (!error) {
-      triggerNotif(`Alhamdulillah, kehadiran tanggal ${selectedDate} berhasil dicatat!`);
-      fetchData(selectedDate);
-    }
+      setScanning(false);
+      setSubmitting(false);
+      if (!error) {
+        triggerNotif("Sidik jari terverifikasi! Kehadiran berhasil dicatat.");
+        fetchData(today);
+      }
+    }, 2000);
   };
 
   const handleIzin = async (e: React.FormEvent) => {
@@ -103,7 +103,7 @@ export default function AttendancePage() {
 
     const { error } = await supabase.from('attendances').insert({
       user_id: session.user.id,
-      date: selectedDate,
+      date: today,
       status: 'izin',
       reason: reason
     });
@@ -111,8 +111,8 @@ export default function AttendancePage() {
     setReason('');
     setSubmitting(false);
     if (!error) {
-      triggerNotif(`Izin tanggal ${selectedDate} tersimpan.`);
-      fetchData(selectedDate);
+      triggerNotif("Izin tersimpan. Semoga diberi kelonggaran waktu.");
+      fetchData(today);
     }
   };
 
@@ -128,6 +128,7 @@ export default function AttendancePage() {
         </div>
       )}
 
+      {/* Kartu Statistik */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
           <p className="text-emerald-100 text-xs md:text-sm">Total Hadir</p>
@@ -141,75 +142,78 @@ export default function AttendancePage() {
         </div>
       </div>
 
+      {/* Form Absensi Hari Ini */}
       <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Form Absensi</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Absensi Hari Ini ({new Date(today).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })})</h3>
         
-        {/* Input Kalender */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Tanggal Absensi</label>
-          <input 
-            type="date" 
-            value={selectedDate} 
-            max={today} // Tidak bisa pilih tanggal future
-            onChange={(e) => setSelectedDate(e.target.value)} 
-            className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
-          />
-          <p className="text-xs text-gray-400 mt-1">Gunakan ini jika Anda lupa absen di hari sebelumnya.</p>
-        </div>
-
-        <div className="border-t border-gray-100 pt-6">
-          <p className="text-sm text-gray-500 mb-4">Status absensi untuk tanggal: <span className="font-bold text-gray-700">{new Date(selectedDate).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span></p>
-          
-          {dateAttendance ? (
-            dateAttendance.status === 'hadir' ? (
-              <div className="bg-green-50 border border-green-200 p-4 rounded-lg text-center text-green-700 font-medium">
-                ✅ Alhamdulillah, Anda sudah menandai kehadiran di tanggal ini.
-              </div>
-            ) : (
-              <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg text-center text-yellow-700 font-medium">
-                📝 Anda izin di tanggal ini. Alasan: "{dateAttendance.reason}"
-              </div>
-            )
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl">
-                <p className="text-gray-600 mb-4 text-center text-sm">Klik tombol di bawah jika Anda membaca Al-Qur'an di tanggal tersebut.</p>
-                <button 
-                  onClick={handleCheckIn} 
-                  disabled={submitting}
-                  className="bg-green-600 text-white py-3 px-8 rounded-lg hover:bg-green-700 transition font-semibold disabled:opacity-50 cursor-pointer"
-                >
-                  ✔️ Tandai Hadir
-                </button>
-              </div>
-
-              <div className="flex flex-col p-6 border-2 border-dashed border-gray-300 rounded-xl">
-                <p className="text-gray-600 mb-2 text-center text-sm">Tidak sempat membaca? Silakan isi alasan:</p>
-                <form onSubmit={handleIzin} className="flex flex-col flex-1">
-                  <textarea 
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    rows={3} 
-                    required
-                    placeholder="Contoh: Sakit, banyak kerjaan, dll" 
-                    className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 mb-3 text-gray-900 text-sm"
-                  ></textarea>
-                  <button 
-                    type="submit" 
-                    disabled={submitting}
-                    className="w-full bg-yellow-600 text-white py-3 rounded-lg hover:bg-yellow-700 transition font-semibold disabled:opacity-50 cursor-pointer"
-                  >
-                    📝 Kirim Alasan Izin
-                  </button>
-                </form>
-              </div>
-
+        {todayAttendance ? (
+          todayAttendance.status === 'hadir' ? (
+            <div className="bg-green-50 border border-green-200 p-4 rounded-lg text-center text-green-700 font-medium">
+              ✅ Alhamdulillah, Anda sudah menandai kehadiran hari ini.
             </div>
-          )}
-        </div>
+          ) : (
+            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg text-center text-yellow-700 font-medium">
+              📝 Anda hari ini izin. Alasan: "{todayAttendance.reason}"
+            </div>
+          )
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Tombol Sidik Jari Modern */}
+            <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl">
+              <p className="text-gray-600 mb-6 text-center text-sm">Sentuh ikon sidik jari di bawah untuk verifikasi kehadiran Anda.</p>
+              
+              <button 
+                onClick={handleCheckIn} 
+                disabled={scanning || submitting}
+                className={`relative flex items-center justify-center w-20 h-20 rounded-full transition-all duration-300 ${scanning ? 'bg-blue-100' : 'bg-indigo-50 hover:bg-indigo-100'} ${!scanning && 'hover:scale-105'} cursor-pointer disabled:cursor-wait`}
+              >
+                {scanning ? (
+                  // Animasi Scanning
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                  </div>
+                ) : null}
+                
+                {/* Ikon Sidik Jari SVG */}
+                <svg className={`w-10 h-10 transition-colors ${scanning ? 'text-blue-600' : 'text-indigo-600'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M6.625 1.855c-.183.119-.372.226-.566.327-.49.252-1.034.399-1.61.399-.576 0-1.12-.147-1.61-.399-.194-.101-.383-.208-.566-.327a.75.75 0 10-.828 1.25c.22.146.446.282.678.402.698.36 1.477.574 2.326.574.849 0 1.628-.214 2.326-.574.232-.12.458-.256.678-.402a.75.75 0 00.828-1.25 7.785 7.785 0 00-.678-.402c-.49-.252-1.034-.399-1.61-.399-.576 0-1.12.147-1.61.399-.194.101-.383.208-.566.327zM10 2a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 2zM5 9.25a.75.75 0 01.75-.75h8.5a.75.75 0 010 1.5h-8.5A.75.75 0 015 9.25zM7 12a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5A.75.75 0 017 12zM7 15a.75.75 0 01.75-.75h2.5a.75.75 0 010 1.5h-2.5A.75.75 0 017 15zM14.5 18.5a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-1.75a.75.75 0 01.75-.75z" clipRule="evenodd" />
+                  <path d="M5.75 6a.75.75 0 00-.75.75V10c0 3.038 2.462 5.5 5.5 5.5s5.5-2.462 5.5-5.5V6.75a.75.75 0 00-1.5 0V10a4 4 0 11-8 0V6.75A.75.75 0 005.75 6z" />
+                </svg>
+              </button>
+              
+              <p className="mt-4 text-xs text-gray-400 font-medium">
+                {scanning ? 'Memindai sidik jari...' : 'Tap untuk Absen'}
+              </p>
+            </div>
+
+            {/* Form Izin */}
+            <div className="flex flex-col p-6 border-2 border-dashed border-gray-300 rounded-xl">
+              <p className="text-gray-600 mb-2 text-center text-sm">Tidak sempat membaca? Silakan isi alasan:</p>
+              <form onSubmit={handleIzin} className="flex flex-col flex-1">
+                <textarea 
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  rows={3} 
+                  required
+                  placeholder="Contoh: Sakit, banyak kerjaan, dll" 
+                  className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-red-500 mb-3 text-gray-900 text-sm"
+                ></textarea>
+                <button 
+                  type="submit" 
+                  disabled={submitting}
+                  className="w-full bg-yellow-600 text-white py-3 rounded-lg hover:bg-yellow-700 transition font-semibold disabled:opacity-50 cursor-pointer"
+                >
+                  📝 Kirim Alasan Izin
+                </button>
+              </form>
+            </div>
+
+          </div>
+        )}
       </div>
 
+      {/* Riwayat Kehadiran */}
       <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Riwayat 10 Absensi Terakhir</h3>
         <div className="space-y-3">
