@@ -10,7 +10,6 @@ export default function Register() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // State untuk Modal Pop-up
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<'success' | 'error'>('success');
   const [modalMsg, setModalMsg] = useState('');
@@ -49,10 +48,10 @@ export default function Register() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       
-      {/* Modal Pop-up Notifikasi */}
+      {/* Modal Pop-up Notifikasi (Tanpa Animasi Bounce) */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center animate-bounce">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
             {modalType === 'success' ? (
               <>
                 <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center">
@@ -71,10 +70,7 @@ export default function Register() {
                 </div>
                 <h4 className="text-xl font-bold text-gray-800 mb-2">Registrasi Gagal!</h4>
                 <p className="text-gray-500 mb-6 text-sm">{modalMsg}</p>
-                <button 
-                  onClick={() => setShowModal(false)} 
-                  className="bg-indigo-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-indigo-700 transition text-sm"
-                >
+                <button onClick={() => setShowModal(false)} className="bg-indigo-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-indigo-700 transition text-sm">
                   Coba Lagi
                 </button>
               </>

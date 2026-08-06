@@ -30,7 +30,6 @@ export default function Login() {
       setShowModal(true);
       setLoading(false);
     } else {
-      // CEK STATUS AKUN (is_active)
       const { data: profile } = await supabase
         .from('profiles')
         .select('is_active')
@@ -38,14 +37,12 @@ export default function Login() {
         .maybeSingle();
 
       if (!profile?.is_active) {
-        // Jika akun nonaktif, langsung sign out dan blok!
         await supabase.auth.signOut();
         setModalType('error');
         setModalMsg("Akun Anda telah dinonaktifkan oleh Admin. Hubungi Guru untuk informasi lebih lanjut.");
         setShowModal(true);
         setLoading(false);
       } else {
-        // Jika aktif, berhasil login
         setModalType('success');
         setModalMsg("Selamat datang kembali! Mengalihkan ke dashboard Anda...");
         setShowModal(true);
@@ -59,9 +56,10 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       
+      {/* Modal Pop-up Notifikasi (Tanpa Animasi Bounce) */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center animate-bounce">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
             {modalType === 'success' ? (
               <>
                 <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center">
@@ -89,6 +87,7 @@ export default function Login() {
         </div>
       )}
 
+      {/* Bagian Kiri (Hero - Tema Hijau) */}
       <div className="w-full md:w-1/2 bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-900 text-white flex flex-col justify-between p-8 md:p-12">
         <h1 className="text-2xl font-bold text-emerald-400">📖 Qur'an Tracker</h1>
         <div className="text-center my-8">
@@ -98,6 +97,7 @@ export default function Login() {
         <div className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Qur'an Tracker</div>
       </div>
 
+      {/* Bagian Kanan (Form - Tema Hijau) */}
       <div className="w-full md:w-1/2 flex flex-col justify-center items-center p-6 bg-gray-50">
         <div className="w-full max-w-md py-8">
           <h2 className="text-3xl font-bold text-gray-800 mb-2">Selamat Datang Kembali 👋</h2>
@@ -106,11 +106,25 @@ export default function Login() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 bg-white" placeholder="email@example.com" />
+              <input 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                required 
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 bg-white" 
+                placeholder="email@example.com" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 bg-white" placeholder="******" />
+              <input 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                required 
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 bg-white" 
+                placeholder="******" 
+              />
             </div>
             <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white p-3 rounded-lg font-bold hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition flex items-center justify-center gap-2">
               {loading ? (
