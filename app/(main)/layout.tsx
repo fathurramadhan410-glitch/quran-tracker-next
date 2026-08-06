@@ -9,7 +9,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false); // State Dark Mode
+  
+  const [darkMode, setDarkMode] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
   
   const router = useRouter();
   const pathname = usePathname();
@@ -28,11 +31,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setUser(profile);
       setLoading(false);
 
-      // --- LOGIKA NOTIFIKASI PENGINGAT 1 JAM ---
       if (Notification.permission === 'default') {
         Notification.requestPermission();
       }
-
       const checkAndNotify = async () => {
         const today = new Date().toLocaleDateString('en-CA');
         const { data: att } = await supabase
@@ -42,64 +43,100 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           .eq('date', today)
           .maybeSingle();
 
-        // Jika belum absen, kirim notifikasi
-        if (!att) {
-          if (Notification.permission === 'granted') {
-            new Notification("⏰ Pengingat Tilawah Qur'an Tracker", {
-              body: "Sudahkah Anda membaca Al-Qur'an hari ini? Jangan lupa input bacaan dan absen Anda! (Abaikan pesan ini jika sudah membaca)",
-              icon: "/logo.png" // Ganti dengan path logo Anda jika ada
-            });
-          }
+        if (!att && Notification.permission === 'granted') {
+          new Notification("⏰ Pengingat Tilawah Qur'an Tracker", {
+            body: "Sudahkah Anda membaca Al-Qur'an hari ini? Jangan lupa input bacaan dan absen Anda! (Abaikan pesan ini jika sudah membaca)",
+          });
         }
       };
-
-      // Cek langsung saat buka aplikasi
       checkAndNotify();
-      // Set interval untuk mengecek setiap 1 jam (3600000 ms)
       const intervalId = setInterval(checkAndNotify, 3600000);
-
-      // Bersihkan interval saat user keluar
       return () => clearInterval(intervalId);
     }
   };
 
   useEffect(() => {
     fetchUser();
-
     const handleProfileUpdate = () => fetchUser();
     window.addEventListener('profile-updated', handleProfileUpdate);
     return () => window.removeEventListener('profile-updated', handleProfileUpdate);
   }, [router]);
+
+  useEffect(() => {
+    const savedMode = localStorage.getItem('darkMode') === 'true';
+    setDarkMode(savedMode);
+  }, []);
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('darkMode', String(darkMode));
+  }, [darkMode]);
+
+  // Logika PWA Install
+  useEffect(() => {
+    // Daftarkan Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(console.error);
+      });
+    }
+
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsInstallable(false);
+        setDeferredPrompt(null);
+      }
+    } else {
+      // Fallback untuk browser yang tidak support pop-up (seperti iOS Safari)
+      alert("Untuk menginstall aplikasi:\n1. Tap ikon Menu/Share di browser.\n2. Pilih 'Tambahkan ke Layar Utama' (Add to Home Screen).");
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
   };
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-400">Memuat aplikasi...</div>;
+  if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-400 dark:text-gray-500">Memuat aplikasi...</div>;
 
   const navLinkClass = (href: string) => 
     `flex items-center gap-3 py-2.5 px-4 rounded-xl transition-all duration-200 ${
       pathname === href 
-        ? 'bg-indigo-50 text-indigo-600 font-bold dark:bg-white/10 dark:text-white' 
-        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 font-medium dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white'
+        ? 'bg-white/20 text-white font-bold dark:bg-white/10 dark:text-white' 
+        : 'text-emerald-100 hover:bg-white/10 hover:text-white font-medium dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white'
     }`;
 
   return (
-    <div className={`${darkMode ? 'dark' : ''} h-screen flex overflow-hidden bg-gray-100 dark:bg-slate-900`}>
+    <div className="h-screen flex overflow-hidden bg-gray-100 dark:bg-slate-900">
       
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-20 md:hidden" onClick={() => setSidebarOpen(false)}></div>
       )}
 
-      {/* Sidebar Modern */}
-      <aside className={`fixed md:relative z-30 w-64 bg-white border-r border-gray-100 flex flex-col h-screen flex-shrink-0 transform transition-transform duration-300 ease-in-out md:translate-x-0 dark:bg-slate-950 dark:border-slate-800 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-16 flex items-center justify-between border-b border-gray-100 px-6 flex-shrink-0 dark:border-slate-800">
+      {/* Sidebar (Hijau saat Light Mode, Hitam saat Dark Mode) */}
+      <aside className={`fixed md:relative z-30 w-64 bg-gradient-to-b from-emerald-800 to-emerald-900 border-r border-emerald-700/50 flex flex-col h-screen flex-shrink-0 transform transition-transform duration-300 ease-in-out md:translate-x-0 dark:from-slate-950 dark:to-slate-950 dark:border-slate-800 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="h-16 flex items-center justify-between border-b border-emerald-700/50 px-6 flex-shrink-0 dark:border-slate-800">
           <div className="flex items-center gap-2">
             <span className="text-2xl">📖</span>
-            <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">Qur'an Tracker</span>
+            <span className="text-lg font-bold text-white dark:text-indigo-400">Qur'an Tracker</span>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-gray-900 dark:text-gray-500">
+          <button onClick={() => setSidebarOpen(false)} className="md:hidden text-emerald-200 hover:text-white dark:text-gray-500">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
@@ -132,8 +169,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </Link>
           
           {user?.is_admin && (
-            <div className="pt-6 mt-6 border-t border-gray-100 dark:border-slate-800">
-              <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 dark:text-gray-500">Menu Admin</p>
+            <div className="pt-6 mt-6 border-t border-emerald-700/50 dark:border-slate-800">
+              <p className="px-4 text-[10px] font-bold text-emerald-300 uppercase tracking-widest mb-2 dark:text-gray-500">Menu Admin</p>
               <div className="space-y-1">
                 <Link href="/admin/participants" onClick={() => setSidebarOpen(false)} className={navLinkClass('/admin/participants')}>
                   <span className="text-xl">👥</span> Data Peserta
@@ -146,14 +183,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
         </nav>
         
-        <div className="p-4 border-t border-gray-100 flex-shrink-0 dark:border-slate-800">
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 py-2.5 px-4 rounded-xl text-red-500 hover:bg-red-50 font-medium transition dark:hover:bg-red-500/10">
+        <div className="p-4 border-t border-emerald-700/50 flex-shrink-0 dark:border-slate-800">
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 py-2.5 px-4 rounded-xl text-red-200 hover:bg-red-500/80 hover:text-white font-medium transition dark:text-red-400 dark:hover:bg-red-500/10">
             <span className="text-xl">🚪</span> Keluar
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="w-full h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 md:px-8 flex-shrink-0 relative z-10 dark:bg-slate-950 dark:border-slate-800">
           <div className="flex items-center space-x-4">
@@ -163,7 +199,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <h2 className="font-bold text-lg md:text-xl text-gray-900 truncate dark:text-white">Dashboard Tilawah</h2>
           </div>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 md:space-x-4">
+            {/* Tombol Install PWA */}
+            <button 
+              onClick={handleInstallClick}
+              className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition shadow-md"
+              title="Install Aplikasi"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              <span className="hidden sm:inline">Install</span>
+            </button>
+
             {/* Tombol Dark Mode */}
             <button 
               onClick={() => setDarkMode(!darkMode)} 
