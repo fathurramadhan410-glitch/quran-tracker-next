@@ -76,15 +76,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     localStorage.setItem('darkMode', String(darkMode));
   }, [darkMode]);
 
-  // Logika PWA Install
   useEffect(() => {
-    // Daftarkan Service Worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').catch(console.error);
       });
     }
-
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -103,8 +100,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setDeferredPrompt(null);
       }
     } else {
-      // Fallback untuk browser yang tidak support pop-up (seperti iOS Safari)
-      alert("Untuk menginstall aplikasi:\n1. Tap ikon Menu/Share di browser.\n2. Pilih 'Tambahkan ke Layar Utama' (Add to Home Screen).");
+      alert("Untuk menginstall aplikasi:\n1. Tap ikon Menu/Share di browser.\n2. Pilih 'Tambahkan ke Layar Utama'.");
     }
   };
 
@@ -129,7 +125,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="fixed inset-0 bg-black/50 z-20 md:hidden" onClick={() => setSidebarOpen(false)}></div>
       )}
 
-      {/* Sidebar (Hijau saat Light Mode, Hitam saat Dark Mode) */}
       <aside className={`fixed md:relative z-30 w-64 bg-gradient-to-b from-emerald-800 to-emerald-900 border-r border-emerald-700/50 flex flex-col h-screen flex-shrink-0 transform transition-transform duration-300 ease-in-out md:translate-x-0 dark:from-slate-950 dark:to-slate-950 dark:border-slate-800 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-16 flex items-center justify-between border-b border-emerald-700/50 px-6 flex-shrink-0 dark:border-slate-800">
           <div className="flex items-center gap-2">
@@ -200,22 +195,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           
           <div className="flex items-center space-x-2 md:space-x-4">
-            {/* Tombol Install PWA */}
-            <button 
-              onClick={handleInstallClick}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition shadow-md"
-              title="Install Aplikasi"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-              <span className="hidden sm:inline">Install</span>
-            </button>
+            {isInstallable && (
+              <button onClick={handleInstallClick} className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition shadow-md">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span className="hidden sm:inline">Install</span>
+              </button>
+            )}
 
-            {/* Tombol Dark Mode */}
-            <button 
-              onClick={() => setDarkMode(!darkMode)} 
-              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/10 transition"
-              title="Ganti Tema"
-            >
+            <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/10 transition" title="Ganti Tema">
               {darkMode ? (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
               ) : (
@@ -226,9 +213,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex items-center space-x-3 relative">
               <button onClick={() => setProfileMenuOpen(!profileMenuOpen)} className="flex items-center space-x-3 focus:outline-none group">
                 <span className="text-sm font-semibold text-gray-600 hidden sm:inline group-hover:text-gray-900 transition dark:text-gray-300 dark:group-hover:text-white">{user?.name}</span>
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold uppercase text-sm shadow-md ring-2 ring-white dark:ring-slate-900">
-                  {user?.name?.charAt(0)}
-                </div>
+                
+                {/* PERBAIKAN: Foto Profil muncul di Header */}
+                {user?.profile_photo_url ? (
+                  <img src={user.profile_photo_url} alt="Foto" className="h-10 w-10 rounded-full object-cover ring-2 ring-white dark:ring-slate-900" />
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold uppercase text-sm shadow-md ring-2 ring-white dark:ring-slate-900">
+                    {user?.name?.charAt(0)}
+                  </div>
+                )}
               </button>
 
               {profileMenuOpen && (

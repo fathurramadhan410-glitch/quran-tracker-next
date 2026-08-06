@@ -7,8 +7,7 @@ export default function AdminParticipantsPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [showNotif, setShowNotif] = useState(false);
   const [notifMsg, setNotifMsg] = useState('');
-  
-  const today = new Date().toLocaleDateString('en-CA');
+  const [openActionId, setOpenActionId] = useState<string | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -30,42 +29,21 @@ export default function AdminParticipantsPage() {
   const toggleActive = async (userId: string, currentStatus: boolean) => {
     await supabase.from('profiles').update({ is_active: !currentStatus }).eq('id', userId);
     triggerNotif(`Akun berhasil ${!currentStatus ? 'diaktifkan' : 'dinonaktifkan'}!`);
+    setOpenActionId(null);
     fetchData();
   };
 
-  // Fungsi baru untuk bypass blokir waktu baca
-  const toggleBypass = async (userId: string, userName: string, currentStatus: boolean) => {
+  const toggleBypass = async (userId: string, currentStatus: boolean) => {
     await supabase.from('profiles').update({ bypass_reading_block: !currentStatus }).eq('id', userId);
-    triggerNotif(`Akses baca siang untuk ${userName} berhasil ${!currentStatus ? 'DIBUKA' : 'DITUTUP'}!`);
-    fetchData();
-  };
-
-  const manualAttendance = async (userId: string, userName: string) => {
-    const { data: existing } = await supabase
-      .from('attendances')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('date', today)
-      .single();
-
-    if (existing) {
-      triggerNotif(`${userName} sudah absen hari ini.`);
-      return;
-    }
-
-    await supabase.from('attendances').insert({
-      user_id: userId,
-      date: today,
-      status: 'hadir'
-    });
-    triggerNotif(`Berhasil menandai ${userName} hadir hari ini!`);
+    triggerNotif(`Akses baca siang berhasil ${!currentStatus ? 'DIBUKA' : 'DITUTUP'}!`);
+    setOpenActionId(null);
     fetchData();
   };
 
   if (loading) return <div className="text-center py-10 text-gray-500">Memuat data peserta...</div>;
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-6 relative" onClick={() => setOpenActionId(null)}>
       
       {showNotif && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-green-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-center space-x-2 animate-bounce">
@@ -84,7 +62,8 @@ export default function AdminParticipantsPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Foto & Nama</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Kontak</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Kontak & Alamat</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Pekerjaan & Pendidikan</th>
                 <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
@@ -106,7 +85,7 @@ export default function AdminParticipantsPage() {
                           <h3 className="font-bold text-gray-900 text-sm">{u.name}</h3>
                           {u.is_admin && <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">Admin</span>}
                           {!u.is_active && <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">Nonaktif</span>}
-                          {u.bypass_reading_block && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">Izin Baca Siang</span>}
+                          {u.bypass_reading_block && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">Izin Siang</span>}
                         </div>
                         <p className="text-xs text-gray-400 mt-0.5">{u.email}</p>
                       </div>
@@ -117,32 +96,35 @@ export default function AdminParticipantsPage() {
                     📞 {u.phone_number || '-'} <br/> 🏠 {u.address || '-'}
                   </td>
 
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                      <button 
-                        onClick={() => manualAttendance(u.id, u.name)} 
-                        className="bg-green-50 text-green-700 text-xs font-bold px-3 py-2 rounded-lg hover:bg-green-100 transition border border-green-100 whitespace-nowrap"
-                      >
-                        ✔️ Hadir
-                      </button>
-                      
-                      {/* Tombol Bypass Baca Siang (Hanya untuk Murid) */}
-                      {!u.is_admin && (
-                        <button 
-                          onClick={() => toggleBypass(u.id, u.name, u.bypass_reading_block)} 
-                          className={`${u.bypass_reading_block ? 'bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-100' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-100'} text-xs font-bold px-3 py-2 rounded-lg transition border whitespace-nowrap`}
-                        >
-                          {u.bypass_reading_block ? '🔒 Tutup Akses' : '🔓 Buka Akses Siang'}
-                        </button>
-                      )}
+                  <td className="px-6 py-4 whitespace-normal text-sm text-gray-600 max-w-[150px]">
+                    💼 {u.occupation || '-'} <br/> 🎓 {u.education || '-'}
+                  </td>
 
-                      <button 
-                        onClick={() => toggleActive(u.id, u.is_active)} 
-                        className={`${u.is_active ? 'bg-red-50 text-red-700 hover:bg-red-100 border-red-100' : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-100'} text-xs font-bold px-3 py-2 rounded-lg transition border whitespace-nowrap`}
-                      >
-                        {u.is_active ? '🚫 Nonaktifkan' : '✅ Aktifkan'}
-                      </button>
-                    </div>
+                  <td className="px-6 py-4 whitespace-nowrap text-center relative" onClick={(e) => e.stopPropagation()}>
+                    <button 
+                      onClick={() => setOpenActionId(openActionId === u.id ? null : u.id)}
+                      className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-200 transition"
+                    >
+                      ⚙️ Aksi
+                    </button>
+
+                    {openActionId === u.id && (
+                      <div className="absolute right-6 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden text-left">
+                        <button 
+                          onClick={() => toggleBypass(u.id, u.bypass_reading_block)}
+                          className={`w-full block px-4 py-3 text-xs font-medium hover:bg-gray-50 ${u.bypass_reading_block ? 'text-orange-600' : 'text-blue-600'}`}
+                        >
+                          {u.bypass_reading_block ? '🔒 Tutup Akses Baca Siang' : '🔓 Buka Akses Baca Siang'}
+                        </button>
+                        <div className="border-t border-gray-100"></div>
+                        <button 
+                          onClick={() => toggleActive(u.id, u.is_active)}
+                          className={`w-full block px-4 py-3 text-xs font-medium hover:bg-gray-50 ${u.is_active ? 'text-red-600' : 'text-green-600'}`}
+                        >
+                          {u.is_active ? '🚫 Nonaktifkan Akun' : '✅ Aktifkan Akun'}
+                        </button>
+                      </div>
+                    )}
                   </td>
 
                 </tr>
@@ -150,7 +132,7 @@ export default function AdminParticipantsPage() {
               
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-6 py-12 text-center text-gray-500 text-sm">Belum ada peserta terdaftar.</td>
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500 text-sm">Belum ada peserta terdaftar.</td>
                 </tr>
               )}
             </tbody>
