@@ -13,6 +13,10 @@ export default function AdminParticipantsPage() {
   const [resetUser, setResetUser] = useState<any>(null);
   const [newPassword, setNewPassword] = useState('');
   const [resetting, setResetting] = useState(false);
+  
+  // State baru untuk Modal Pop-up Sukses
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
   const fetchData = async () => {
     setLoading(true);
@@ -53,7 +57,6 @@ export default function AdminParticipantsPage() {
     }
     setResetting(true);
 
-    // Panggil API Route yang tadi kita buat
     const res = await fetch('/api/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -65,8 +68,9 @@ export default function AdminParticipantsPage() {
     setNewPassword('');
 
     if (data.success) {
-      triggerNotif(`Password ${resetUser.name} berhasil diubah!`);
-      setResetUser(null);
+      setResetUser(null); // Tutup modal input password
+      setSuccessMsg(`Password untuk murid ${resetUser.name} telah berhasil diperbarui. Silakan infokan password baru tersebut kepada murid.`);
+      setShowSuccessModal(true); // Tampilkan modal sukses
     } else {
       alert("Gagal mengubah password: " + data.error);
     }
@@ -77,13 +81,33 @@ export default function AdminParticipantsPage() {
   return (
     <div className="space-y-6 relative" onClick={() => setOpenActionId(null)}>
       
+      {/* Notif Toast (Untuk Aktif/Nonaktif) */}
       {showNotif && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-green-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-center space-x-2">
           <span className="font-semibold text-sm">{notifMsg}</span>
         </div>
       )}
 
-      {/* Modal Reset Password */}
+      {/* Modal Pop-up Sukses Reset Password */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center">
+              <svg className="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h4 className="text-xl font-bold text-gray-800 mb-2">Password Berhasil Diubah!</h4>
+            <p className="text-gray-500 mb-6 text-sm">{successMsg}</p>
+            <button 
+              onClick={() => setShowSuccessModal(false)} 
+              className="bg-indigo-600 text-white px-8 py-2 rounded-full font-semibold hover:bg-indigo-700 transition text-sm"
+            >
+              Selesai
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Input Reset Password */}
       {resetUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setResetUser(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center" onClick={e => e.stopPropagation()}>
@@ -175,7 +199,6 @@ export default function AdminParticipantsPage() {
 
                     {openActionId === u.id && (
                       <div className="absolute right-6 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden text-left">
-                        {/* Sub Aksi Reset Password */}
                         <button 
                           onClick={() => { setResetUser(u); setOpenActionId(null); }}
                           className="w-full block px-4 py-3 text-xs font-medium text-indigo-600 hover:bg-gray-50 border-b border-gray-100"
