@@ -9,6 +9,11 @@ export default function AdminParticipantsPage() {
   const [notifMsg, setNotifMsg] = useState('');
   const [openActionId, setOpenActionId] = useState<string | null>(null);
 
+  // State untuk Modal Reset Password
+  const [resetUser, setResetUser] = useState<any>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetting, setResetting] = useState(false);
+
   const fetchData = async () => {
     setLoading(true);
     const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
@@ -40,14 +45,74 @@ export default function AdminParticipantsPage() {
     fetchData();
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      alert("Password minimal 6 karakter!");
+      return;
+    }
+    setResetting(true);
+
+    // Panggil API Route yang tadi kita buat
+    const res = await fetch('/api/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: resetUser.id, newPassword })
+    });
+
+    const data = await res.json();
+    setResetting(false);
+    setNewPassword('');
+
+    if (data.success) {
+      triggerNotif(`Password ${resetUser.name} berhasil diubah!`);
+      setResetUser(null);
+    } else {
+      alert("Gagal mengubah password: " + data.error);
+    }
+  };
+
   if (loading) return <div className="text-center py-10 text-gray-500">Memuat data peserta...</div>;
 
   return (
     <div className="space-y-6 relative" onClick={() => setOpenActionId(null)}>
       
       {showNotif && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-green-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-center space-x-2 animate-bounce">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-green-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-center space-x-2">
           <span className="font-semibold text-sm">{notifMsg}</span>
+        </div>
+      )}
+
+      {/* Modal Reset Password */}
+      {resetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setResetUser(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-indigo-100 flex items-center justify-center">
+              <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-6 6M9 21a9 9 0 110-18 9 9 0 010 18z"></path></svg>
+            </div>
+            <h4 className="text-xl font-bold text-gray-800 mb-2">Reset Password</h4>
+            <p className="text-gray-500 mb-6 text-sm">Masukkan password baru untuk: <br/><span className="font-bold text-gray-700">{resetUser.name}</span></p>
+            
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <input 
+                type="password" 
+                value={newPassword} 
+                onChange={(e) => setNewPassword(e.target.value)} 
+                required 
+                minLength={6}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 bg-white" 
+                placeholder="Masukkan password baru (min 6 char)" 
+              />
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setResetUser(null)} className="w-full bg-gray-100 text-gray-700 p-3 rounded-lg font-bold hover:bg-gray-200 transition">
+                  Batal
+                </button>
+                <button type="submit" disabled={resetting} className="w-full bg-indigo-600 text-white p-3 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 transition">
+                  {resetting ? 'Menyimpan...' : 'Simpan Password'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -110,13 +175,21 @@ export default function AdminParticipantsPage() {
 
                     {openActionId === u.id && (
                       <div className="absolute right-6 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden text-left">
+                        {/* Sub Aksi Reset Password */}
+                        <button 
+                          onClick={() => { setResetUser(u); setOpenActionId(null); }}
+                          className="w-full block px-4 py-3 text-xs font-medium text-indigo-600 hover:bg-gray-50 border-b border-gray-100"
+                        >
+                          🔑 Ganti Password
+                        </button>
+
                         <button 
                           onClick={() => toggleBypass(u.id, u.bypass_reading_block)}
-                          className={`w-full block px-4 py-3 text-xs font-medium hover:bg-gray-50 ${u.bypass_reading_block ? 'text-orange-600' : 'text-blue-600'}`}
+                          className={`w-full block px-4 py-3 text-xs font-medium hover:bg-gray-50 border-b border-gray-100 ${u.bypass_reading_block ? 'text-orange-600' : 'text-blue-600'}`}
                         >
                           {u.bypass_reading_block ? '🔒 Tutup Akses Baca Siang' : '🔓 Buka Akses Baca Siang'}
                         </button>
-                        <div className="border-t border-gray-100"></div>
+
                         <button 
                           onClick={() => toggleActive(u.id, u.is_active)}
                           className={`w-full block px-4 py-3 text-xs font-medium hover:bg-gray-50 ${u.is_active ? 'text-red-600' : 'text-green-600'}`}

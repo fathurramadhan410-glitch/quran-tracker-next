@@ -13,6 +13,9 @@ export default function Login() {
   const [modalType, setModalType] = useState<'success' | 'error'>('success');
   const [modalMsg, setModalMsg] = useState('');
   
+  // State untuk Modal Lupa Password
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -56,6 +59,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       
+      {/* Modal Pop-up Notifikasi Login */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
@@ -86,6 +90,44 @@ export default function Login() {
         </div>
       )}
 
+      {/* Modal Lupa Password (Informasi Hubungi Admin) */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowForgotModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
+            {/* Tombol Silang (Close) */}
+            <button 
+              onClick={() => setShowForgotModal(false)} 
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-indigo-100 flex items-center justify-center">
+                <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+              </div>
+              <h4 className="text-xl font-bold text-gray-800">Lupa Password atau Email?</h4>
+            </div>
+
+            <div className="space-y-3 text-sm text-gray-600 text-justify">
+              <p>Jangan khawatir! Jika Anda lupa password atau email akun Anda, Anda dapat memohon reset password secara langsung kepada <span className="font-semibold text-indigo-600">Admin atau Guru</span> Anda.</p>
+              <p>Silakan hubungi Admin/Guru Anda, lalu sampaikan kendala ini. Admin akan dengan senang hati membantu Anda mereset password akun ini dengan cepat dan aman.</p>
+              <p className="text-xs text-gray-400 italic mt-4">Terima kasih atas pengertian dan kerja sama Anda.</p>
+            </div>
+
+            <div className="mt-8">
+              <button 
+                onClick={() => setShowForgotModal(false)} 
+                className="w-full bg-indigo-600 text-white p-3 rounded-lg font-bold hover:bg-indigo-700 transition text-sm"
+              >
+                Saya Mengerti
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bagian Kiri (Hero - Tema Hijau) */}
       <div className="w-full md:w-1/2 bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-900 text-white flex flex-col justify-between p-8 md:p-12">
         <h1 className="text-2xl font-bold text-emerald-400">📖 Qur'an Tracker</h1>
         <div className="text-center my-8">
@@ -95,6 +137,7 @@ export default function Login() {
         <div className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Qur'an Tracker</div>
       </div>
 
+      {/* Bagian Kanan (Form - Tema Hijau) */}
       <div className="w-full md:w-1/2 flex flex-col justify-center items-center p-6 bg-gray-50">
         <div className="w-full max-w-md py-8">
           <h2 className="text-3xl font-bold text-gray-800 mb-2">Selamat Datang Kembali 👋</h2>
@@ -103,18 +146,36 @@ export default function Login() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 bg-white" placeholder="email@example.com" />
+              <input 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                required 
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 bg-white" 
+                placeholder="email@example.com" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 bg-white" placeholder="******" />
+              <input 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                required 
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 bg-white" 
+                placeholder="******" 
+              />
             </div>
             
-            {/* TOMBOL LUPA PASSWORD */}
+            {/* TOMBOL LUPA PASSWORD (Membuka Modal) */}
             <div className="text-right">
-              <Link href="/forgot-password" className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition">
+              <button 
+                type="button" 
+                onClick={() => setShowForgotModal(true)}
+                className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition"
+              >
                 Lupa Password?
-              </Link>
+              </button>
             </div>
 
             <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white p-3 rounded-lg font-bold hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition flex items-center justify-center gap-2">
