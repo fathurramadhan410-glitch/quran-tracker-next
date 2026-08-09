@@ -30,35 +30,41 @@ export default function Login() {
       setModalMsg("Email atau password yang Anda masukkan salah.");
       setShowModal(true);
       setLoading(false);
-    } else {
-      // Cek status aktif akun
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_active')
-        .eq('id', data.user.id)
-        .maybeSingle();
-
-      if (!profile?.is_active) {
-        await supabase.auth.signOut();
-        setModalType('error');
-        setModalMsg("Akun Anda telah dinonaktifkan oleh Admin. Hubungi Guru untuk informasi lebih lanjut.");
-        setShowModal(true);
-        setLoading(false);
-      } else {
-        // Berhasil login! Pengecekan maintenance akan dilakukan di layout.tsx
-        setModalType('success');
-        setModalMsg("Selamat datang kembali! Mengalihkan ke dashboard Anda...");
-        setShowModal(true);
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 2000);
-      }
+      return;
     }
+
+    // 1. Cek status aktif akun (Hanya blokir jika BENAR-BENAR false)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_active')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    // Jika database secara eksplisit mencatat is_active = false, maka tolak.
+    // Jika data null (karena jeda server/race condition), abaikan dan biarkan masuk.
+    if (profile && profile.is_active === false) {
+      await supabase.auth.signOut();
+      setModalType('error');
+      setModalMsg("Akun Anda telah dinonaktifkan oleh Admin. Hubungi Guru untuk informasi lebih lanjut.");
+      setShowModal(true);
+      setLoading(false);
+      return;
+    }
+
+    // 2. Berhasil login!
+    setModalType('success');
+    setModalMsg("Selamat datang kembali! Mengalihkan ke dashboard Anda...");
+    setShowModal(true);
+    
+    setTimeout(() => {
+      router.push('/dashboard');
+    }, 2000);
   };
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       
+      {/* Modal Pop-up Notifikasi Login */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
@@ -89,6 +95,7 @@ export default function Login() {
         </div>
       )}
 
+      {/* Modal Lupa Password */}
       {showForgotModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowForgotModal(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
@@ -115,6 +122,7 @@ export default function Login() {
         </div>
       )}
 
+      {/* Bagian Kiri (Hero) */}
       <div className="w-full md:w-1/2 bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-900 text-white flex flex-col justify-between p-8 md:p-12">
         <h1 className="text-2xl font-bold text-emerald-400">📖 Qur'an Tracker</h1>
         <div className="text-center my-8">
@@ -124,6 +132,7 @@ export default function Login() {
         <div className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Qur'an Tracker</div>
       </div>
 
+      {/* Bagian Kanan (Form) */}
       <div className="w-full md:w-1/2 flex flex-col justify-center items-center p-6 bg-gray-50">
         <div className="w-full max-w-md py-8">
           <h2 className="text-3xl font-bold text-gray-800 mb-2">Selamat Datang Kembali 👋</h2>
