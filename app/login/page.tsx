@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -16,17 +16,6 @@ export default function Login() {
   const [showForgotModal, setShowForgotModal] = useState(false);
   const router = useRouter();
 
-  // Cek status maintenance saat halaman dibuka
-  useEffect(() => {
-    const checkMaintenance = async () => {
-      const { data: settings } = await supabase.from('app_settings').select('*').eq('id', 1).maybeSingle();
-      if (settings?.is_maintenance) {
-        router.push('/maintenance');
-      }
-    };
-    checkMaintenance();
-  }, [router]);
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -42,31 +31,40 @@ export default function Login() {
       setShowModal(true);
       setLoading(false);
     } else {
-      // Cek status maintenance lagi setelah login
-      const { data: settings } = await supabase.from('app_settings').select('*').eq('id', 1).maybeSingle();
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
+      // 1. Ambil data profile user yang login
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .maybeSingle();
 
-      // Jika maintenance aktif DAN user BUKAN developer, tendang ke maintenance
-      if (settings?.is_maintenance && !profile?.is_developer) {
+      // 2. Jika data profil tidak ditemukan (kemungkinan trigger gagal)
+      if (profileError || !profile) {
         await supabase.auth.signOut();
-        router.push('/maintenance');
+        setModalType('error');
+        setModalMsg("Data profil tidak ditemukan. Hubungi Admin untuk pembuatan profil manual.");
+        setShowModal(true);
+        setLoading(false);
         return;
       }
 
-      if (!profile?.is_active) {
+      // 3. Cek status aktif akun
+      if (!profile.is_active) {
         await supabase.auth.signOut();
         setModalType('error');
         setModalMsg("Akun Anda telah dinonaktifkan oleh Admin. Hubungi Guru untuk informasi lebih lanjut.");
         setShowModal(true);
         setLoading(false);
-      } else {
-        setModalType('success');
-        setModalMsg("Selamat datang kembali! Mengalihkan ke dashboard Anda...");
-        setShowModal(true);
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 2000);
+        return;
       }
+
+      // 4. Jika aktif, berhasil login! (Pengecekan maintenance akan dilakukan di layout.tsx)
+      setModalType('success');
+      setModalMsg("Selamat datang kembali! Mengalihkan ke dashboard Anda...");
+      setShowModal(true);
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
     }
   };
 
