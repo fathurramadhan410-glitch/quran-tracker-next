@@ -16,7 +16,7 @@ export default function TargetPage() {
   const [showNotif, setShowNotif] = useState(false);
   const [notifMsg, setNotifMsg] = useState('');
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
 
   const fetchData = async () => {
     setLoading(true);
@@ -27,47 +27,42 @@ export default function TargetPage() {
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
-      .single();
+      .maybeSingle();
     setProfile(profileData);
 
-    // Ambil SEMUA target (untuk riwayat)
     const { data: targetsData } = await supabase
       .from('targets')
       .select('*')
       .order('created_at', { ascending: false });
     setAllTargets(targetsData || []);
 
-    // Ambil target yang AKTIF
     const { data: targetData } = await supabase
       .from('targets')
       .select('*')
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
     if (targetData) {
       setActiveTarget(targetData);
 
-      // Cek apakah user sudah join
       const { data: joined } = await supabase
         .from('target_participants')
         .select('id')
         .eq('target_id', targetData.id)
         .eq('user_id', session.user.id)
-        .single();
+        .maybeSingle();
       setIsJoined(!!joined);
 
-      // Ambil daftar peserta beserta profilnya
       const { data: participantsData } = await supabase
         .from('target_participants')
         .select('user_id, profiles:user_id(name, current_page, total_points, current_streak)')
         .eq('target_id', targetData.id);
       
-      const validParticipants = participantsData?.filter(p => p.profiles) || [];
+      const validParticipants = participantsData?.filter((p: any) => p.profiles) || [];
       setParticipants(validParticipants);
 
       const usersCount = validParticipants.length || 1;
 
-      // Kalkulasi Pintar
       const start = new Date(targetData.start_date);
       const end = new Date(targetData.end_date);
       const diffTime = Math.abs(end.getTime() - start.getTime());
@@ -84,8 +79,8 @@ export default function TargetPage() {
         sheetsPerPerson: Math.ceil(pagesPerPerson / 2)
       });
 
-      // Ambil log bacaan hari ini
-      const userIds = validParticipants.map(p => p.user_id) || [];
+      const userIds = validParticipants.map((p: any) => p.user_id) || [];
+
       const { data: logsToday } = await supabase
         .from('reading_logs')
         .select('*, profiles:user_id(name)')
@@ -137,10 +132,8 @@ export default function TargetPage() {
     setSubmitting(true);
     const formData = new FormData(e.currentTarget);
     
-    // Nonaktifkan target lama
     await supabase.from('targets').update({ is_active: false }).eq('is_active', true);
 
-    // Buat target baru
     const { data: newTarget } = await supabase.from('targets').insert({
       name: formData.get('name'),
       start_date: formData.get('start_date'),
@@ -149,7 +142,6 @@ export default function TargetPage() {
       is_active: true
     }).select().single();
 
-    // Auto-join admin ke target baru
     const { data: { session } } = await supabase.auth.getSession();
     if (session && newTarget) {
       await supabase.from('target_participants').insert({
@@ -164,6 +156,14 @@ export default function TargetPage() {
     fetchData();
   };
 
+  const handleDeleteTarget = async (targetId: string) => {
+    if (confirm("Yakin ingin menghapus target ini?")) {
+      await supabase.from('targets').delete().eq('id', targetId);
+      triggerNotif("Target berhasil dihapus.");
+      fetchData();
+    }
+  };
+
   if (loading) return <div className="text-center py-10 text-gray-500">Memuat data target...</div>;
 
   const progressPercent = calculation && remainingToday 
@@ -171,9 +171,8 @@ export default function TargetPage() {
     : 0;
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-6 relative" x-data="{ showDetailModal: false, selectedUser: null }">
       
-      {/* Pop-up Notifikasi */}
       {showNotif && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-green-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-center space-x-2 animate-bounce">
           <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -181,14 +180,11 @@ export default function TargetPage() {
         </div>
       )}
 
-      <div className={`grid ${profile?.is_admin ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1'} gap-6`}>
+      <div className={`${profile?.is_admin ? 'grid grid-cols-1 lg:grid-cols-3' : 'grid grid-cols-1'} gap-6`}>
         
-        {/* Panel Kiri: Form Admin & Riwayat Target */}
-        <div className="lg:col-span-1 space-y-6">
-          
-          {/* Form Buat Target (Hanya Admin) */}
-          {profile?.is_admin && (
-            <div className="bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700">
+        {profile?.is_admin && (
+          <div className="lg:col-span-1">
+            <div className="bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700 sticky top-6">
               <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
                 <span>🛠️</span> Panel Admin
               </h3>
@@ -201,15 +197,15 @@ export default function TargetPage() {
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-slate-300 mb-1 uppercase">Tgl Mulai</label>
-                    <input type="date" name="start_date" required style={{ colorScheme: 'dark' }} className="w-full p-3 bg-slate-900 border border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-white text-sm" />
+                    <input type="date" name="start_date" required className="w-full p-3 bg-slate-900 border border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-white text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-300 mb-1 uppercase">Tgl Selesai</label>
-                    <input type="date" name="end_date" required style={{ colorScheme: 'dark' }} className="w-full p-3 bg-slate-900 border border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-white text-sm" />
+                    <input type="date" name="end_date" required className="w-full p-3 bg-slate-900 border border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-white text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-300 mb-1 uppercase">Tgl Khatam</label>
-                    <input type="date" name="khatam_date" required style={{ colorScheme: 'dark' }} className="w-full p-3 bg-slate-900 border border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-white text-sm" />
+                    <input type="date" name="khatam_date" required className="w-full p-3 bg-slate-900 border border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-white text-sm" />
                   </div>
                 </div>
                 <button type="submit" disabled={submitting} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-3 rounded-lg font-bold hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50 cursor-pointer transition shadow-lg">
@@ -217,39 +213,12 @@ export default function TargetPage() {
                 </button>
               </form>
             </div>
-          )}
-
-          {/* Riwayat Target (Admin & Murid) */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-              📜 Riwayat Target
-            </h3>
-            <div className="space-y-3">
-              {allTargets.map((t) => (
-                <div key={t.id} className="p-4 rounded-xl bg-gray-50 border border-gray-100">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="font-bold text-gray-900 text-sm">{t.name}</span>
-                    {t.is_active ? (
-                      <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase">Aktif</span>
-                    ) : (
-                      <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-bold uppercase">Selesai</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Khatam: {new Date(t.khatam_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </p>
-                </div>
-              ))}
-              {allTargets.length === 0 && <p className="text-sm text-gray-500 text-center py-4">Belum ada target dibuat.</p>}
-            </div>
           </div>
-        </div>
+        )}
 
-        {/* Panel Kanan: Info Target Aktif & Peserta */}
         <div className={profile?.is_admin ? 'lg:col-span-2 space-y-6' : 'space-y-6'}>
           {activeTarget ? (
             <>
-              {/* Kartu Info Target */}
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                   <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full uppercase tracking-wider">Target Aktif</span>
@@ -264,12 +233,11 @@ export default function TargetPage() {
                   </span>
                 ) : (
                   <button onClick={handleJoin} disabled={submitting} className="bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition text-sm font-bold cursor-pointer shadow-md">
-                    Ikuti Target Ini
+                    Ikut Target Ini
                   </button>
                 )}
               </div>
 
-              {/* Kalkulasi Pintar */}
               {calculation && (
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">📊 Kalkulasi Tugas Harian</h3>
@@ -301,7 +269,6 @@ export default function TargetPage() {
                 </div>
               )}
 
-              {/* Progres Bacaan Hari Ini */}
               {remainingToday && calculation && (
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                   <h3 className="text-lg font-bold text-gray-900 mb-1">⚠️ Progres Bacaan Hari Ini</h3>
@@ -348,7 +315,6 @@ export default function TargetPage() {
                 </div>
               )}
 
-              {/* DAFTAR PESERTA AKTIF (ADMIN & MURID) */}
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                   👥 Daftar Peserta Target ({participants.length} Orang)
@@ -406,6 +372,39 @@ export default function TargetPage() {
               )}
             </div>
           )}
+          
+          {/* Riwayat Target */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              📜 Riwayat Target
+            </h3>
+            <div className="space-y-3">
+              {allTargets.map((t) => (
+                <div key={t.id} className="flex justify-between items-center p-4 rounded-xl bg-gray-50 border border-gray-100">
+                  <div>
+                    <p className="font-bold text-gray-900 text-sm">
+                      {t.name} 
+                      {t.is_active ? 
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full ml-2">Aktif</span> 
+                        : 
+                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full ml-2">Selesai</span>
+                      }
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Khatam: {new Date(t.khatam_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                  </div>
+                  
+                  {profile?.is_admin && (
+                    <button onClick={() => handleDeleteTarget(t.id)} className="text-gray-400 hover:text-red-600 transition" title="Hapus Target">
+                      🗑️
+                    </button>
+                  )}
+                </div>
+              ))}
+              {allTargets.length === 0 && <p className="text-sm text-gray-500 text-center py-4">Belum ada target dibuat.</p>}
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -28,7 +28,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return;
         }
 
-        // Ambil data profil dari Supabase
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
@@ -38,7 +37,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setUser(profile || {});
         setLoading(false);
 
-        // Logika Notifikasi
         if (typeof window !== 'undefined' && 'Notification' in window) {
           if (Notification.permission === 'default') {
             Notification.requestPermission();
@@ -132,7 +130,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-400 dark:text-gray-500">Memuat aplikasi...</div>;
 
-  const isPrivileged = user?.is_admin;
+  const isPrivileged = user?.is_admin === true;
 
   const navLinkClass = (href: string) => 
     `flex items-center gap-3 py-2.5 px-4 rounded-xl transition-all duration-200 ${
