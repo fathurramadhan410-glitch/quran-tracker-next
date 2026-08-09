@@ -13,8 +13,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [darkMode, setDarkMode] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [maintenanceMsg, setMaintenanceMsg] = useState('');
   
   const router = useRouter();
   const pathname = usePathname();
@@ -23,52 +21,49 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       router.push('/login');
-    } else {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .maybeSingle();
-      
-      setUser(profile);
+      return;
+    } 
 
-      // Cek Status Maintenance
-      const { data: settings } = await supabase.from('app_settings').select('*').eq('id', 1).maybeSingle();
-      if (settings) {
-        setMaintenanceMode(settings.is_maintenance);
-        setMaintenanceMsg(settings.maintenance_message);
-      }
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    
+    setUser(profile);
 
-      // Jika Maintenance AKTIF dan user BUKAN developer, tendang ke halaman maintenance
-      if (settings?.is_maintenance && !profile?.is_developer) {
-        router.push('/maintenance');
-        return;
-      }
-
-      setLoading(false);
-
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-      const checkAndNotify = async () => {
-        const today = new Date().toLocaleDateString('en-CA');
-        const { data: att } = await supabase
-          .from('attendances')
-          .select('id')
-          .eq('user_id', session.user.id)
-          .eq('date', today)
-          .maybeSingle();
-
-        if (!att && Notification.permission === 'granted') {
-          new Notification("⏰ Pengingat Tilawah Qur'an Tracker", {
-            body: "Sudahkah Anda membaca Al-Qur'an hari ini? Jangan lupa input bacaan dan absen Anda! (Abaikan pesan ini jika sudah membaca)",
-          });
-        }
-      };
-      checkAndNotify();
-      const intervalId = setInterval(checkAndNotify, 3600000);
-      return () => clearInterval(intervalId);
+    // CEK MAINTENANCE MODE
+    const { data: settings } = await supabase.from('app_settings').select('*').eq('id', 1).maybeSingle();
+    if (settings?.is_maintenance && !profile?.is_developer) {
+      // Jika maintenance aktif dan user BUKAN developer, tendang ke halaman maintenance
+      router.push('/maintenance');
+      return;
     }
+
+    setLoading(false);
+
+    // Logika Notifikasi
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    const checkAndNotify = async () => {
+      const today = new Date().toLocaleDateString('en-CA');
+      const { data: att } = await supabase
+        .from('attendances')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('date', today)
+        .maybeSingle();
+
+      if (!att && Notification.permission === 'granted') {
+        new Notification("⏰ Pengingat Tilawah Qur'an Tracker", {
+          body: "Sudahkah Anda membaca Al-Qur'an hari ini? Jangan lupa input bacaan dan absen Anda! (Abaikan pesan ini jika sudah membaca)",
+        });
+      }
+    };
+    checkAndNotify();
+    const intervalId = setInterval(checkAndNotify, 3600000);
+    return () => clearInterval(intervalId);
   };
 
   useEffect(() => {
@@ -144,7 +139,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="fixed inset-0 bg-black/50 z-20 md:hidden" onClick={() => setSidebarOpen(false)}></div>
       )}
 
-      {/* Sidebar */}
       <aside className={`fixed md:relative z-30 w-64 bg-gradient-to-b from-emerald-800 to-emerald-900 border-r border-emerald-700/50 flex flex-col h-screen flex-shrink-0 transform transition-transform duration-300 ease-in-out md:translate-x-0 dark:from-slate-950 dark:to-slate-950 dark:border-slate-800 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-16 flex items-center justify-between border-b border-emerald-700/50 px-6 flex-shrink-0 dark:border-slate-800">
           <div className="flex items-center gap-2">
@@ -183,7 +177,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="text-xl">⚙️</span> Profil
           </Link>
           
-          {/* Menu Admin & Developer */}
           {isPrivileged && (
             <div className="pt-6 mt-6 border-t border-emerald-700/50 dark:border-slate-800">
               <p className="px-4 text-[10px] font-bold text-emerald-300 uppercase tracking-widest mb-2 dark:text-gray-500">Menu Admin</p>
@@ -198,7 +191,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           )}
 
-          {/* Menu Khusus Developer */}
           {user?.is_developer && (
             <div className="pt-6 mt-6 border-t border-emerald-700/50 dark:border-slate-800">
               <p className="px-4 text-[10px] font-bold text-purple-300 uppercase tracking-widest mb-2 dark:text-purple-400">Menu Developer</p>
