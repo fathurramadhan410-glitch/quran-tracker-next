@@ -28,7 +28,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return;
         }
 
-        // 1. Ambil Profil
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
@@ -36,32 +35,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           .maybeSingle();
         
         setUser(profile || {});
-
-        // 2. Cek Maintenance (Dibungkus Fail-Safe agar tidak crash jika tabel error)
-        let isMaintenance = false;
-        try {
-          const { data: settings } = await supabase
-            .from('app_settings')
-            .select('*')
-            .eq('id', 1)
-            .maybeSingle();
-
-          if (settings) {
-            isMaintenance = settings.is_maintenance;
-          }
-        } catch (e) {
-          console.error("Tabel maintenance belum ada, dilewati...");
-        }
-
-        // Jika maintenance aktif & bukan developer, tendang
-        if (isMaintenance && !profile?.is_developer) {
-          router.push('/maintenance');
-          return;
-        }
-
         setLoading(false);
 
-        // 3. Notifikasi (Dibungkus Fail-Safe)
+        // Logika Notifikasi
         if (typeof window !== 'undefined' && 'Notification' in window) {
           if (Notification.permission === 'default') {
             Notification.requestPermission();
@@ -90,8 +66,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
 
       } catch (error) {
-        console.error("Fatal Error Layout:", error);
-        // Jika terjadi error tak terduga, tetap tampilkan UI agar tidak blank
+        console.error("Error Layout:", error);
         setLoading(false);
       }
     };
@@ -154,25 +129,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/login');
   };
 
-  // Loading State
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-900 text-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-      </div>
-    );
-  }
+  if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-400 dark:text-gray-500">Memuat aplikasi...</div>;
 
-  // Fallback jika user null (jarang terjadi, tapi untuk safety)
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-900 text-white">
-        <button onClick={handleLogout} className="bg-red-600 px-6 py-3 rounded-lg font-bold">Muat Uang / Keluar</button>
-      </div>
-    );
-  }
-
-  const isPrivileged = user?.is_admin || user?.is_developer;
+  const isPrivileged = user?.is_admin;
 
   const navLinkClass = (href: string) => 
     `flex items-center gap-3 py-2.5 px-4 rounded-xl transition-all duration-200 ${
@@ -239,17 +198,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </div>
           )}
-
-          {user?.is_developer && (
-            <div className="pt-6 mt-6 border-t border-emerald-700/50 dark:border-slate-800">
-              <p className="px-4 text-[10px] font-bold text-purple-300 uppercase tracking-widest mb-2 dark:text-purple-400">Menu Developer</p>
-              <div className="space-y-1">
-                <Link href="/developer/system" onClick={() => setSidebarOpen(false)} className={navLinkClass('/developer/system')}>
-                  <span className="text-xl">🛠️</span> Manajemen Sistem
-                </Link>
-              </div>
-            </div>
-          )}
         </nav>
         
         <div className="p-4 border-t border-emerald-700/50 flex-shrink-0 dark:border-slate-800">
@@ -265,9 +213,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button onClick={() => setSidebarOpen(true)} className="md:hidden text-gray-500 focus:outline-none dark:text-gray-400">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
-            <h2 className="font-bold text-lg md:text-xl text-gray-900 truncate dark:text-white">
-              {user?.is_developer ? '👑 Developer Mode' : 'Dashboard Tilawah'}
-            </h2>
+            <h2 className="font-bold text-lg md:text-xl text-gray-900 truncate dark:text-white">Dashboard Tilawah</h2>
           </div>
           
           <div className="flex items-center space-x-2 md:space-x-4">
@@ -305,7 +251,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <p className="font-bold text-lg truncate">{user?.name}</p>
                     <p className="text-xs text-indigo-100 truncate">{user?.email}</p>
                     <span className="mt-2 inline-block bg-white/20 px-2 py-1 rounded-full text-[10px] font-bold uppercase">
-                      {user?.is_developer ? '👑 Developer' : user?.is_admin ? '👑 Admin / Guru' : '🎓 Santri'}
+                      {user?.is_admin ? '👑 Admin / Guru' : '🎓 Santri'}
                     </span>
                   </div>
                   <div className="p-4 space-y-2 text-sm">
