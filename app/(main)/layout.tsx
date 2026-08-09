@@ -20,7 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     let intervalId: any;
 
-    const fetchUser = async () => {
+    const initializeApp = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
@@ -28,61 +28,77 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return;
         }
 
+        // 1. Ambil Profil
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .maybeSingle();
         
-        setUser(profile);
+        setUser(profile || {});
 
-        // CEK MAINTENANCE MODE
-        const { data: settings } = await supabase
-          .from('app_settings')
-          .select('*')
-          .eq('id', 1)
-          .maybeSingle();
+        // 2. Cek Maintenance (Dibungkus Fail-Safe agar tidak crash jika tabel error)
+        let isMaintenance = false;
+        try {
+          const { data: settings } = await supabase
+            .from('app_settings')
+            .select('*')
+            .eq('id', 1)
+            .maybeSingle();
 
-        if (settings && settings.is_maintenance && !profile?.is_developer) {
+          if (settings) {
+            isMaintenance = settings.is_maintenance;
+          }
+        } catch (e) {
+          console.error("Tabel maintenance belum ada, dilewati...");
+        }
+
+        // Jika maintenance aktif & bukan developer, tendang
+        if (isMaintenance && !profile?.is_developer) {
           router.push('/maintenance');
           return;
         }
 
         setLoading(false);
 
-        // Logika Notifikasi (Dipecah agar tidak crash)
-        if (Notification.permission === 'default') {
-          Notification.requestPermission();
-        }
-        
-        const checkAndNotify = async () => {
-          const today = new Date().toLocaleDateString('en-CA');
-          const { data: att } = await supabase
-            .from('attendances')
-            .select('id')
-            .eq('user_id', session.user.id)
-            .eq('date', today)
-            .maybeSingle();
-
-          if (!att && Notification.permission === 'granted') {
-            new Notification("⏰ Pengingat Tilawah Qur'an Tracker", {
-              body: "Sudahkah Anda membaca Al-Qur'an hari ini? Jangan lupa input bacaan dan absen Anda! (Abaikan pesan ini jika sudah membaca)",
-            });
+        // 3. Notifikasi (Dibungkus Fail-Safe)
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+          if (Notification.permission === 'default') {
+            Notification.requestPermission();
           }
-        };
+          
+          const checkAndNotify = async () => {
+            try {
+              const today = new Date().toLocaleDateString('en-CA');
+              const { data: att } = await supabase
+                .from('attendances')
+                .select('id')
+                .eq('user_id', session.user.id)
+                .eq('date', today)
+                .maybeSingle();
 
-        checkAndNotify();
-        intervalId = setInterval(checkAndNotify, 3600000);
+              if (!att && Notification.permission === 'granted') {
+                new Notification("⏰ Pengingat Tilawah Qur'an Tracker", {
+                  body: "Sudahkah Anda membaca Al-Qur'an hari ini? Jangan lupa input bacaan dan absen Anda!",
+                });
+              }
+            } catch (e) {}
+          };
+
+          checkAndNotify();
+          intervalId = setInterval(checkAndNotify, 3600000);
+        }
 
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Fatal Error Layout:", error);
+        // Jika terjadi error tak terduga, tetap tampilkan UI agar tidak blank
         setLoading(false);
       }
     };
 
-    fetchUser();
+    initializeApp();
 
-    const handleProfileUpdate = () => fetchUser();
+    const handleProfileUpdate = () => initializeApp();
     window.addEventListener('profile-updated', handleProfileUpdate);
     
     return () => {
@@ -138,7 +154,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/login');
   };
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-400 dark:text-gray-500">Memuat aplikasi...</div>;
+  // Loading State
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-900 text-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
+  // Fallback jika user null (jarang terjadi, tapi untuk safety)
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-900 text-white">
+        <button onClick={handleLogout} className="bg-red-600 px-6 py-3 rounded-lg font-bold">Muat Uang / Keluar</button>
+      </div>
+    );
+  }
 
   const isPrivileged = user?.is_admin || user?.is_developer;
 
@@ -262,7 +294,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <img src={user.profile_photo_url} alt="Foto" className="h-10 w-10 rounded-full object-cover ring-2 ring-white dark:ring-slate-900" />
                 ) : (
                   <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold uppercase text-sm shadow-md ring-2 ring-white dark:ring-slate-900">
-                    {user?.name?.charAt(0)}
+                    {user?.name?.charAt(0) || 'U'}
                   </div>
                 )}
               </button>
@@ -273,7 +305,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <p className="font-bold text-lg truncate">{user?.name}</p>
                     <p className="text-xs text-indigo-100 truncate">{user?.email}</p>
                     <span className="mt-2 inline-block bg-white/20 px-2 py-1 rounded-full text-[10px] font-bold uppercase">
-                      {user?.is_developer ? '👑 Developer / Super Admin' : user?.is_admin ? '👑 Admin / Guru' : '🎓 Santri'}
+                      {user?.is_developer ? '👑 Developer' : user?.is_admin ? '👑 Admin / Guru' : '🎓 Santri'}
                     </span>
                   </div>
                   <div className="p-4 space-y-2 text-sm">

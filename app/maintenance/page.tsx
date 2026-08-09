@@ -4,23 +4,33 @@ import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
 export default function MaintenancePage() {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState('Aplikasi sedang dalam pemeliharaan (Maintenance). Silakan coba lagi nanti.');
   const router = useRouter();
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data } = await supabase.from('app_settings').select('*').eq('id', 1).single();
-      if (data) setMessage(data.maintenance_message);
+      try {
+        const { data } = await supabase.from('app_settings').select('*').eq('id', 1).maybeSingle();
+        if (data && data.maintenance_message) {
+          setMessage(data.maintenance_message);
+        }
+      } catch (e) {
+        // Biarkan pesan default
+      }
     };
     fetchSettings();
   }, []);
 
   const handleCheckStatus = async () => {
-    const { data: settings } = await supabase.from('app_settings').select('is_maintenance').eq('id', 1).single();
-    if (!settings?.is_maintenance) {
-      router.push('/dashboard');
-    } else {
-      alert("Sistem masih dalam pemeliharaan. Silakan coba lagi nanti.");
+    try {
+      const { data: settings } = await supabase.from('app_settings').select('is_maintenance').eq('id', 1).maybeSingle();
+      if (!settings?.is_maintenance) {
+        router.push('/dashboard');
+      } else {
+        alert("Sistem masih dalam pemeliharaan. Silakan coba lagi nanti.");
+      }
+    } catch (e) {
+      alert("Tidak dapat terhubung ke server. Periksa koneksi Anda.");
     }
   };
 
