@@ -17,60 +17,78 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
 
-  const fetchUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      router.push('/login');
-      return;
-    } 
+  useEffect(() => {
+    let intervalId: any;
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .maybeSingle();
-    
-    setUser(profile);
+    const fetchUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          router.push('/login');
+          return;
+        }
 
-    // CEK MAINTENANCE MODE
-    const { data: settings } = await supabase.from('app_settings').select('*').eq('id', 1).maybeSingle();
-    if (settings?.is_maintenance && !profile?.is_developer) {
-      // Jika maintenance aktif dan user BUKAN developer, tendang ke halaman maintenance
-      router.push('/maintenance');
-      return;
-    }
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        
+        setUser(profile);
 
-    setLoading(false);
+        // CEK MAINTENANCE MODE
+        const { data: settings } = await supabase
+          .from('app_settings')
+          .select('*')
+          .eq('id', 1)
+          .maybeSingle();
 
-    // Logika Notifikasi
-    if (Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-    const checkAndNotify = async () => {
-      const today = new Date().toLocaleDateString('en-CA');
-      const { data: att } = await supabase
-        .from('attendances')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .eq('date', today)
-        .maybeSingle();
+        if (settings && settings.is_maintenance && !profile?.is_developer) {
+          router.push('/maintenance');
+          return;
+        }
 
-      if (!att && Notification.permission === 'granted') {
-        new Notification("⏰ Pengingat Tilawah Qur'an Tracker", {
-          body: "Sudahkah Anda membaca Al-Qur'an hari ini? Jangan lupa input bacaan dan absen Anda! (Abaikan pesan ini jika sudah membaca)",
-        });
+        setLoading(false);
+
+        // Logika Notifikasi (Dipecah agar tidak crash)
+        if (Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+        
+        const checkAndNotify = async () => {
+          const today = new Date().toLocaleDateString('en-CA');
+          const { data: att } = await supabase
+            .from('attendances')
+            .select('id')
+            .eq('user_id', session.user.id)
+            .eq('date', today)
+            .maybeSingle();
+
+          if (!att && Notification.permission === 'granted') {
+            new Notification("⏰ Pengingat Tilawah Qur'an Tracker", {
+              body: "Sudahkah Anda membaca Al-Qur'an hari ini? Jangan lupa input bacaan dan absen Anda! (Abaikan pesan ini jika sudah membaca)",
+            });
+          }
+        };
+
+        checkAndNotify();
+        intervalId = setInterval(checkAndNotify, 3600000);
+
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setLoading(false);
       }
     };
-    checkAndNotify();
-    const intervalId = setInterval(checkAndNotify, 3600000);
-    return () => clearInterval(intervalId);
-  };
 
-  useEffect(() => {
     fetchUser();
+
     const handleProfileUpdate = () => fetchUser();
     window.addEventListener('profile-updated', handleProfileUpdate);
-    return () => window.removeEventListener('profile-updated', handleProfileUpdate);
+    
+    return () => {
+      window.removeEventListener('profile-updated', handleProfileUpdate);
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [router]);
 
   useEffect(() => {
@@ -122,7 +140,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-400 dark:text-gray-500">Memuat aplikasi...</div>;
 
-  // Cek apakah user adalah Admin atau Developer
   const isPrivileged = user?.is_admin || user?.is_developer;
 
   const navLinkClass = (href: string) => 
