@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null);
@@ -19,10 +20,15 @@ export default function ProfilePage() {
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
+  const router = useRouter();
+
   useEffect(() => {
     const fetchProfile = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        router.push('/login');
+        return;
+      }
       const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
       setProfile(data);
       setName(data?.name || '');
@@ -34,7 +40,7 @@ export default function ProfilePage() {
       setLoading(false);
     };
     fetchProfile();
-  }, []);
+  }, [router]);
 
   const triggerNotif = (msg: string) => {
     setNotifMsg(msg);
@@ -120,6 +126,16 @@ export default function ProfilePage() {
 
   if (loading) return <div className="text-center py-10 text-gray-500">Memuat profil...</div>;
 
+  if (!profile) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-red-500 font-bold">Data profil tidak ditemukan di database.</p>
+        <p className="text-gray-500 text-sm mt-2">Silakan hubungi Admin untuk pembuatan profil manual.</p>
+        <button onClick={() => router.push('/login')} className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg">Keluar</button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 relative">
       
@@ -155,6 +171,9 @@ export default function ProfilePage() {
             <div className="mt-3 flex justify-center sm:justify-start gap-2">
               <span className={`px-3 py-1 rounded-full text-xs font-bold ${profile?.is_admin ? 'bg-yellow-400/20 text-yellow-300 border border-yellow-400/30' : 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30'}`}>
                 {profile?.is_admin ? '👑 Admin / Guru' : '🎓 Santri'}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${profile?.is_active ? 'bg-blue-400/20 text-blue-300 border border-blue-400/30' : 'bg-red-400/20 text-red-300 border border-red-400/30'}`}>
+                {profile?.is_active ? 'Aktif' : 'Nonaktif'}
               </span>
             </div>
           </div>

@@ -206,7 +206,18 @@ export default function DashboardPage() {
     setTimeout(() => setShowNotif(false), 3000);
   };
 
-  if (loading || !profile) return <div className="text-center py-10 text-gray-500">Memuat data...</div>;
+  if (loading) return <div className="text-center py-10 text-gray-500">Memuat data...</div>;
+
+  // Tambahkan fallback jika profile null agar tidak crash
+  if (!profile) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-red-500 font-bold">Data profil tidak ditemukan di database.</p>
+        <p className="text-gray-500 text-sm mt-2">Silakan hubungi Admin untuk pembuatan profil manual.</p>
+        <button onClick={() => router.push('/login')} className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg">Keluar</button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 relative">
