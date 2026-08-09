@@ -31,7 +31,7 @@ export default function DashboardPage() {
       .in('user_id', participants)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     const lastPage = lastLog?.end_page || 0;
     const nextStartPage = lastPage >= 604 ? 604 : lastPage + 1;
@@ -60,7 +60,7 @@ export default function DashboardPage() {
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
-      .single();
+      .maybeSingle();
     setProfile(profileData);
 
     // Cek Waktu Blokir (01:00 - 16:00 WITA)
@@ -78,7 +78,7 @@ export default function DashboardPage() {
       .from('targets')
       .select('id')
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
     let participantStatus = false;
     let participantsIds: string[] = [];
@@ -133,9 +133,9 @@ export default function DashboardPage() {
         const newLog = payload.new as any;
         
         // Cek apakah yang input adalah peserta target
-        const { data: activeTarget } = await supabase.from('targets').select('id').eq('is_active', true).single();
+        const { data: activeTarget } = await supabase.from('targets').select('id').eq('is_active', true).maybeSingle();
         if (activeTarget) {
-          const { data: p } = await supabase.from('target_participants').select('user_id').eq('target_id', activeTarget.id).eq('user_id', newLog.user_id).single();
+          const { data: p } = await supabase.from('target_participants').select('user_id').eq('target_id', activeTarget.id).eq('user_id', newLog.user_id).maybeSingle();
           if (p && isParticipant) {
             // Update UI realtime jika dia peserta
             setGlobalLastPage(newLog.end_page);
@@ -207,7 +207,8 @@ export default function DashboardPage() {
     setTimeout(() => setShowNotif(false), 3000);
   };
 
-  if (loading) return <div className="text-center py-10 text-gray-500">Memuat data...</div>;
+  // PERBAIKAN: Tambahkan !profile di sini agar tidak crash saat data masih kosong
+  if (loading || !profile) return <div className="text-center py-10 text-gray-500">Memuat data...</div>;
 
   return (
     <div className="space-y-6 relative">
@@ -249,24 +250,24 @@ export default function DashboardPage() {
           <>
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
               <p className="text-indigo-100 text-xs md:text-sm">Halaman Saat Ini (Individu)</p>
-              <h3 className="text-xl md:text-2xl font-bold mt-1">{profile.current_page} / 604</h3>
-              <p className="text-xs text-indigo-200 mt-1">Juz {Math.ceil(profile.current_page / 20)}</p>
+              <h3 className="text-xl md:text-2xl font-bold mt-1">{profile?.current_page || 1} / 604</h3>
+              <p className="text-xs text-indigo-200 mt-1">Juz {Math.ceil((profile?.current_page || 1) / 20)}</p>
             </div>
             <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
               <p className="text-emerald-100 text-xs md:text-sm">Total Dibaca (Individu)</p>
-              <h3 className="text-xl md:text-2xl font-bold mt-1">{profile.total_pages_read}</h3>
+              <h3 className="text-xl md:text-2xl font-bold mt-1">{profile?.total_pages_read || 0}</h3>
               <p className="text-xs text-emerald-200 mt-1">Halaman</p>
             </div>
           </>
         )}
         <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
           <p className="text-orange-100 text-xs md:text-sm">Streak Pribadi</p>
-          <h3 className="text-xl md:text-2xl font-bold mt-1">🔥 {profile.current_streak}</h3>
+          <h3 className="text-xl md:text-2xl font-bold mt-1">🔥 {profile?.current_streak || 0}</h3>
           <p className="text-xs text-orange-200 mt-1">Hari</p>
         </div>
         <div className="bg-gradient-to-br from-pink-500 to-rose-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
           <p className="text-pink-100 text-xs md:text-sm">Total Poin Pribadi</p>
-          <h3 className="text-xl md:text-2xl font-bold mt-1">⭐ {profile.total_points}</h3>
+          <h3 className="text-xl md:text-2xl font-bold mt-1">⭐ {profile?.total_points || 0}</h3>
           <p className="text-xs text-pink-200 mt-1">Poin Akhirat</p>
         </div>
       </div>
