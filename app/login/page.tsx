@@ -30,47 +30,57 @@ export default function Login() {
       setModalMsg("Email atau password yang Anda masukkan salah.");
       setShowModal(true);
       setLoading(false);
-    } else {
-      // 1. Ambil data profile user yang login
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .maybeSingle();
-
-      // 2. Jika data profil tidak ditemukan (kemungkinan trigger gagal)
-      if (profileError || !profile) {
-        await supabase.auth.signOut();
-        setModalType('error');
-        setModalMsg("Data profil tidak ditemukan. Hubungi Admin untuk pembuatan profil manual.");
-        setShowModal(true);
-        setLoading(false);
-        return;
-      }
-
-      // 3. Cek status aktif akun
-      if (!profile.is_active) {
-        await supabase.auth.signOut();
-        setModalType('error');
-        setModalMsg("Akun Anda telah dinonaktifkan oleh Admin. Hubungi Guru untuk informasi lebih lanjut.");
-        setShowModal(true);
-        setLoading(false);
-        return;
-      }
-
-      // 4. Jika aktif, berhasil login! (Pengecekan maintenance akan dilakukan di layout.tsx)
-      setModalType('success');
-      setModalMsg("Selamat datang kembali! Mengalihkan ke dashboard Anda...");
-      setShowModal(true);
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 2000);
+      return;
     }
+
+    // 1. Ambil data profil
+    let { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    // 2. AUTO-RECOVERY: Jika profil tidak ada (karena trigger gagal/race condition), buatkan manual!
+    if (!profile) {
+      const { data: newProfile } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          name: data.user.user_metadata?.full_name || 'Pengguna Baru',
+          is_active: true,
+          is_admin: false,
+          is_developer: false
+        })
+        .select('*')
+        .single();
+      
+      profile = newProfile;
+    }
+
+    // 3. Cek status aktif akun
+    if (!profile?.is_active) {
+      await supabase.auth.signOut();
+      setModalType('error');
+      setModalMsg("Akun Anda telah dinonaktifkan oleh Admin. Hubungi Guru untuk informasi lebih lanjut.");
+      setShowModal(true);
+      setLoading(false);
+      return;
+    }
+
+    // 4. Berhasil login! (Pengecekan maintenance akan dilakukan otomatis di layout.tsx)
+    setModalType('success');
+    setModalMsg("Selamat datang kembali! Mengalihkan ke dashboard Anda...");
+    setShowModal(true);
+    
+    setTimeout(() => {
+      router.push('/dashboard');
+    }, 2000);
   };
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       
+      {/* Modal Sukses/Gagal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
@@ -101,6 +111,7 @@ export default function Login() {
         </div>
       )}
 
+      {/* Modal Lupa Password */}
       {showForgotModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowForgotModal(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
@@ -127,6 +138,7 @@ export default function Login() {
         </div>
       )}
 
+      {/* Tampilan Kiri */}
       <div className="w-full md:w-1/2 bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-900 text-white flex flex-col justify-between p-8 md:p-12">
         <h1 className="text-2xl font-bold text-emerald-400">📖 Qur'an Tracker</h1>
         <div className="text-center my-8">
@@ -136,6 +148,7 @@ export default function Login() {
         <div className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Qur'an Tracker</div>
       </div>
 
+      {/* Tampilan Kanan Form */}
       <div className="w-full md:w-1/2 flex flex-col justify-center items-center p-6 bg-gray-50">
         <div className="w-full max-w-md py-8">
           <h2 className="text-3xl font-bold text-gray-800 mb-2">Selamat Datang Kembali 👋</h2>
