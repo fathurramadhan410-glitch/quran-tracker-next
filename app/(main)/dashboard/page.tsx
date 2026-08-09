@@ -17,14 +17,13 @@ export default function DashboardPage() {
   const [globalTotalToday, setGlobalTotalToday] = useState(0);
   const [globalLastPage, setGlobalLastPage] = useState(1);
   const [isBlocked, setIsBlocked] = useState(false);
-  const [isParticipant, setIsParticipant] = useState(false); // Status ikut target atau tidak
+  const [isParticipant, setIsParticipant] = useState(false);
 
   const today = new Date().toLocaleDateString('en-CA');
 
   const fetchGlobalData = async (participants: string[]) => {
     if (participants.length === 0) return;
 
-    // 1. Ambil halaman terakhir hanya dari peserta target
     const { data: lastLog } = await supabase
       .from('reading_logs')
       .select('end_page')
@@ -38,7 +37,6 @@ export default function DashboardPage() {
     
     setGlobalLastPage(lastPage);
     
-    // 2. Hitung Total Halaman Jamaah Hari Ini (hanya dari peserta)
     const { data: todayLogs } = await supabase
       .from('reading_logs')
       .select('pages_read')
@@ -54,13 +52,32 @@ export default function DashboardPage() {
   const fetchData = async () => {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!session) {
+      router().push('/login');
+      return;
+    }
 
-    const { data: profileData } = await supabase
+    let { data: profileData } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
       .maybeSingle();
+
+    // AUTO-RECOVERY: Jika profil tidak ada di database, buatkan sekarang!
+    if (!profileData) {
+      const { data: newProfile } = await supabase
+        .from('profiles')
+        .insert({
+          id: session.user.id,
+          name: session.user.user_metadata?.full_name || 'Pengguna Baru',
+          is_active: true
+        })
+        .select('*')
+        .single();
+      
+      profileData = newProfile;
+    }
+
     setProfile(profileData);
 
     // Cek Waktu Blokir (01:00 - 16:00 WITA)
@@ -95,7 +112,6 @@ export default function DashboardPage() {
 
     setIsParticipant(participantStatus);
 
-    // Jika dia peserta, ambil data global (relay). Jika tidak, ambil data individu.
     if (participantStatus) {
       const globalData = await fetchGlobalData(participantsIds);
       if (globalData) {
@@ -105,7 +121,6 @@ export default function DashboardPage() {
         setJuz(autoJuz > 30 ? 30 : autoJuz);
       }
     } else {
-      // Mode Individu
       const individualStart = profileData?.current_page || 1;
       setStartPage(individualStart);
       setEndPage(individualStart);
@@ -123,21 +138,23 @@ export default function DashboardPage() {
     setLoading(false);
   };
 
+  // Helper router untuk redirect
+  const router = () => {
+    return window.location;
+  };
+
   useEffect(() => {
     fetchData();
 
-    // Realtime hanya merespon jika user adalah peserta target
     const channel = supabase
       .channel('global-reading-logs')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reading_logs' }, async (payload) => {
         const newLog = payload.new as any;
         
-        // Cek apakah yang input adalah peserta target
         const { data: activeTarget } = await supabase.from('targets').select('id').eq('is_active', true).maybeSingle();
         if (activeTarget) {
           const { data: p } = await supabase.from('target_participants').select('user_id').eq('target_id', activeTarget.id).eq('user_id', newLog.user_id).maybeSingle();
           if (p && isParticipant) {
-            // Update UI realtime jika dia peserta
             setGlobalLastPage(newLog.end_page);
             const next = newLog.end_page >= 604 ? 604 : newLog.end_page + 1;
             setStartPage(next);
@@ -168,7 +185,7 @@ export default function DashboardPage() {
       return;
     }
 
-    let newStreak = profile.current_streak;
+    let newStreak = profile.current_streak || 0;
     if (profile.last_read_date) {
         const lastRead = new Date(profile.last_read_date);
         const todayDate = new Date(today);
@@ -192,11 +209,11 @@ export default function DashboardPage() {
 
     await supabase.from('profiles').update({
       current_page: endPage,
-      total_pages_read: profile.total_pages_read + pagesRead,
+      total_pages_read: (profile.total_pages_read || 0) + pagesRead,
       current_streak: newStreak,
-      longest_streak: newStreak > profile.longest_streak ? newStreak : profile.longest_streak,
+      longest_streak: newStreak > (profile.longest_streak || 0) ? newStreak : (profile.longest_streak || 0),
       last_read_date: today,
-      total_points: profile.total_points + (pagesRead * 10)
+      total_points: (profile.total_points || 0) + (pagesRead * 10)
     }).eq('id', session.user.id);
 
     setNotes('');
@@ -207,7 +224,6 @@ export default function DashboardPage() {
     setTimeout(() => setShowNotif(false), 3000);
   };
 
-  // PERBAIKAN: Tambahkan !profile di sini agar tidak crash saat data masih kosong
   if (loading || !profile) return <div className="text-center py-10 text-gray-500">Memuat data...</div>;
 
   return (
@@ -220,7 +236,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Banner Peringatan Belum Ikut Target */}
       {!isParticipant && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-xl flex items-center gap-3">
           <span className="text-2xl">⚠️</span>
@@ -231,7 +246,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Kartu Statistik (Dinamis sesuai status peserta) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {isParticipant ? (
           <>
@@ -273,7 +287,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Form Input / Pesan Blokir */}
         <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Catat Bacaan Hari Ini</h3>
           
@@ -334,7 +347,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Riwayat Bacaan */}
         <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Riwayat 5 Bacaan Terakhir (Anda)</h3>
           <div className="space-y-3">
@@ -342,12 +354,12 @@ export default function DashboardPage() {
               <div key={log.id} className="border-b border-gray-200 pb-2">
                 <div className="flex justify-between items-center">
                   <div>
-                    <span className="font-medium text-gray-900 text-sm md:text-base">Hal. {log.start_page} - {log.end_page}</span>
-                    <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 py-1 px-2 rounded-full">Juz {log.juz}</span>
+                    <span className="font-medium text-gray-900 text-sm md:text-base">Hal. {{log.start_page}} - {{log.end_page}}</span>
+                    <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 py-1 px-2 rounded-full">Juz {{log.juz}}</span>
                   </div>
                   <span className="text-xs md:text-sm text-gray-500">{new Date(log.log_date).toLocaleDateString('id-ID')}</span>
                 </div>
-                {log.notes && <p className="text-sm text-gray-600 mt-1">{log.notes}</p>}
+                {log.notes && <p className="text-sm text-gray-600 mt-1">{{log.notes}}</p>}
               </div>
             ))}
             {logs.length === 0 && <p className="text-gray-500 text-sm">Belum ada catatan bacaan.</p>}
