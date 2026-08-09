@@ -236,7 +236,7 @@ export default function QuranReaderPage() {
         {loading && (
           <div className="absolute inset-0 flex justify-center items-center bg-white/70 dark:bg-black/70 z-10 rounded-2xl">
             <svg className="animate-spin h-12 w-12 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           </div>
@@ -311,7 +311,7 @@ export default function QuranReaderPage() {
           font-size: 1rem;
           margin: 0 0.4rem;
           vertical-align: middle;
-          background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="%2310b981" stroke-width="6"/><circle cx="50" cy="50" r="28" fill="none" stroke="%2310b981" stroke-width="2"/></svg>');
+          background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="%2310b981" strokeWidth="6"/><circle cx="50" cy="50" r="28" fill="none" stroke="%2310b981" strokeWidth="2"/></svg>');
           background-size: contain;
           background-repeat: no-repeat;
           background-position: center;
@@ -319,7 +319,7 @@ export default function QuranReaderPage() {
           font-weight: bold;
         }
         .ayah-marker-static {
-          background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="%2310b981" stroke-width="6"/><circle cx="50" cy="50" r="28" fill="none" stroke="%2310b981" stroke-width="2"/></svg>');
+          background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="%2310b981" strokeWidth="6"/><circle cx="50" cy="50" r="28" fill="none" stroke="%2310b981" strokeWidth="2"/></svg>');
           background-size: contain;
           background-repeat: no-repeat;
           background-position: center;
