@@ -11,10 +11,15 @@ export default function SystemManagementPage() {
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data } = await supabase.from('app_settings').select('*').eq('id', 1).single();
-      if (data) {
-        setIsMaintenance(data.is_maintenance);
-        setMessage(data.maintenance_message);
+      try {
+        // UBAH: .single() menjadi .maybeSingle() agar tidak crash jika data kosong
+        const { data } = await supabase.from('app_settings').select('*').eq('id', 1).maybeSingle();
+        if (data) {
+          setIsMaintenance(data.is_maintenance);
+          setMessage(data.maintenance_message);
+        }
+      } catch (e) {
+        console.error("Error fetching settings");
       }
       setLoading(false);
     };
@@ -64,7 +69,6 @@ export default function SystemManagementPage() {
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">Kontrol akses aplikasi dan mode pemeliharaan (Maintenance).</p>
 
-        {/* Kartu Status Maintenance */}
         <div className={`p-6 rounded-xl border-2 ${isMaintenance ? 'bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/30' : 'bg-green-50 border-green-200 dark:bg-green-500/10 dark:border-green-500/30'}`}>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -85,7 +89,6 @@ export default function SystemManagementPage() {
           </div>
         </div>
 
-        {/* Form Pesan Maintenance */}
         <form onSubmit={handleSaveMessage} className="mt-8 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pesan Maintenance (Opsional)</label>
