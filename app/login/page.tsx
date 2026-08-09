@@ -60,6 +60,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       
+      {/* Modal Pop-up Notifikasi Login */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
@@ -90,6 +91,7 @@ export default function Login() {
         </div>
       )}
 
+      {/* Modal Lupa Password */}
       {showForgotModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowForgotModal(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
@@ -116,6 +118,7 @@ export default function Login() {
         </div>
       )}
 
+      {/* Bagian Kiri (Hero) */}
       <div className="w-full md:w-1/2 bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-900 text-white flex flex-col justify-between p-8 md:p-12">
         <h1 className="text-2xl font-bold text-emerald-400">📖 Qur'an Tracker</h1>
         <div className="text-center my-8">
@@ -125,6 +128,7 @@ export default function Login() {
         <div className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Qur'an Tracker</div>
       </div>
 
+      {/* Bagian Kanan (Form) */}
       <div className="w-full md:w-1/2 flex flex-col justify-center items-center p-6 bg-gray-50">
         <div className="w-full max-w-md py-8">
           <h2 className="text-3xl font-bold text-gray-800 mb-2">Selamat Datang Kembali 👋</h2>
@@ -147,7 +151,7 @@ export default function Login() {
             <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white p-3 rounded-lg font-bold hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition flex items-center justify-center gap-2">
               {loading ? (
                 <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
               ) : null}
