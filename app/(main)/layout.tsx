@@ -37,7 +37,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setUser(profile || {});
         setLoading(false);
 
-        // Logika Notifikasi
         if (typeof window !== 'undefined' && 'Notification' in window) {
           if (Notification.permission === 'default') {
             Notification.requestPermission();

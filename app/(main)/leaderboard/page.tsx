@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
-// Definisikan tipe data untuk User agar TypeScript tidak error
 type LeaderboardUser = {
   id: string;
   name: string;
@@ -28,7 +27,6 @@ export default function LeaderboardPage() {
         return;
       }
 
-      // Gunakan maybeSingle() agar tidak error jika data belum ada
       const { data: userData } = await supabase
         .from('profiles')
         .select('*')
@@ -38,14 +36,12 @@ export default function LeaderboardPage() {
       setCurrentUser(userData);
 
       if (activeTab === 'quiz') {
-        // MODE QUIZ
         const { data: allData } = await supabase
           .from('profiles')
           .select('id, name, quiz_points, current_streak')
           .order('quiz_points', { ascending: false })
           .limit(10);
         
-        // Mapping data quiz ke tipe LeaderboardUser
         const mappedQuizData: LeaderboardUser[] = (allData || []).map((u: any) => ({
           id: u.id,
           name: u.name,
@@ -65,7 +61,6 @@ export default function LeaderboardPage() {
         }
 
       } else {
-        // MODE JAMAAH
         const { data: activeTarget } = await supabase
           .from('targets')
           .select('id, start_date')
@@ -127,7 +122,6 @@ export default function LeaderboardPage() {
   return (
     <div className="space-y-8">
       
-      {/* Header Judul Mewah */}
       <div className="text-center">
         <div className="inline-block mb-4">
           <svg className="w-16 h-16 mx-auto text-yellow-400 drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
@@ -141,7 +135,6 @@ export default function LeaderboardPage() {
         <p className="text-gray-500 mt-2 text-sm md:text-base">Konsistensi hari ini, kebahagiaan di akhirat nanti.</p>
       </div>
 
-      {/* Tombol Filter (Tabs) */}
       <div className="flex justify-center">
         <div className="inline-flex bg-gray-100 p-1 rounded-xl shadow-sm">
           <button onClick={() => setActiveTab('jamaah')} className={`px-6 py-2.5 rounded-lg text-sm font-bold transition ${activeTab === 'jamaah' ? 'bg-white text-indigo-600 shadow' : 'text-gray-500 hover:text-gray-700'}`}>
@@ -153,7 +146,6 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      {/* Kartu Peringkat Anda Saat Ini */}
       {currentUserRank > 0 && (
         <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-3xl shadow-2xl p-6 text-white flex flex-col md:flex-row justify-between items-center gap-4 border border-white/10">
           <div className="text-center md:text-left">
@@ -170,7 +162,6 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      {/* Daftar Top 10 */}
       <div className="bg-white p-4 md:p-8 rounded-3xl shadow-xl border border-gray-100">
         {activeTab === 'jamaah' && (
           <div className="mb-6 bg-blue-50 p-3 rounded-lg text-xs text-blue-700 text-center">

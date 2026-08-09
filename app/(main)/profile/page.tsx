@@ -8,20 +8,14 @@ export default function ProfilePage() {
   const [submitting, setSubmitting] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [notifMsg, setNotifMsg] = useState('');
-  const [activeTab, setActiveTab] = useState('data'); // data, photo, security
+  const [activeTab, setActiveTab] = useState('data');
 
-  // State untuk Modal Pop-up Sukses Keamanan
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successModalMsg, setSuccessModalMsg] = useState('');
-
-  // Data Diri
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [occupation, setOccupation] = useState('');
   const [education, setEducation] = useState('');
 
-  // Security
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
@@ -31,11 +25,11 @@ export default function ProfilePage() {
       if (!session) return;
       const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
       setProfile(data);
-      setName(data.name || '');
-      setPhone(data.phone_number || '');
-      setAddress(data.address || '');
-      setOccupation(data.occupation || '');
-      setEducation(data.education || '');
+      setName(data?.name || '');
+      setPhone(data?.phone_number || '');
+      setAddress(data?.address || '');
+      setOccupation(data?.occupation || '');
+      setEducation(data?.education || '');
       setEmail(session.user.email || '');
       setLoading(false);
     };
@@ -61,7 +55,7 @@ export default function ProfilePage() {
     setSubmitting(false);
     if (!error) {
       triggerNotif("Data diri berhasil diperbarui!");
-      window.dispatchEvent(new Event('profile-updated')); // Update header
+      window.dispatchEvent(new Event('profile-updated'));
     }
   };
 
@@ -89,7 +83,7 @@ export default function ProfilePage() {
         await supabase.from('profiles').update({ profile_photo_url: data.secure_url }).eq('id', session!.user.id);
         setProfile({ ...profile, profile_photo_url: data.secure_url });
         triggerNotif("Foto profil berhasil diunggah!");
-        window.dispatchEvent(new Event('profile-updated')); // Update header
+        window.dispatchEvent(new Event('profile-updated'));
       } else {
         triggerNotif("Gagal mengunggah foto. Coba lagi.");
       }
@@ -118,9 +112,7 @@ export default function ProfilePage() {
     setNewPassword('');
     
     if (!error) {
-      // Tampilkan Modal Pop-up Sukses
-      setSuccessModalMsg("Email dan/atau Password akun Anda telah berhasil diperbarui. Silakan login kembali menggunakan kredensial baru Anda.");
-      setShowSuccessModal(true);
+      triggerNotif("Email/Password berhasil diperbarui. Silakan login kembali.");
     } else {
       triggerNotif(error.message);
     }
@@ -131,7 +123,6 @@ export default function ProfilePage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6 relative">
       
-      {/* Notif Toast (Untuk Data Diri & Foto) */}
       {showNotif && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-green-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-center space-x-2">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
@@ -139,31 +130,8 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Modal Pop-up Sukses Keamanan */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center">
-              <svg className="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
-            </div>
-            <h4 className="text-xl font-bold text-gray-800 mb-2">Keamanan Diperbarui!</h4>
-            <p className="text-gray-500 mb-6 text-sm">{successModalMsg}</p>
-            <button 
-              onClick={async () => {
-                await supabase.auth.signOut();
-                window.location.href = '/login';
-              }} 
-              className="bg-indigo-600 text-white px-8 py-2 rounded-full font-semibold hover:bg-indigo-700 transition text-sm w-full"
-            >
-              Logout Sekarang
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         
-        {/* Header Profil Elegan */}
         <div className="bg-gradient-to-r from-slate-900 via-indigo-900 to-purple-900 p-8 text-white flex flex-col sm:flex-row items-center gap-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl -ml-10 -mb-10"></div>
@@ -181,21 +149,17 @@ export default function ProfilePage() {
           <div className="relative z-10 text-center sm:text-left">
             <h2 className="text-3xl font-extrabold tracking-tight">{profile?.name}</h2>
             <p className="text-indigo-200 mt-1 flex items-center justify-center sm:justify-start gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
               {profile?.email}
             </p>
             <div className="mt-3 flex justify-center sm:justify-start gap-2">
               <span className={`px-3 py-1 rounded-full text-xs font-bold ${profile?.is_admin ? 'bg-yellow-400/20 text-yellow-300 border border-yellow-400/30' : 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30'}`}>
                 {profile?.is_admin ? '👑 Admin / Guru' : '🎓 Santri'}
               </span>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold ${profile?.is_active ? 'bg-blue-400/20 text-blue-300 border border-blue-400/30' : 'bg-red-400/20 text-red-300 border border-red-400/30'}`}>
-                {profile?.is_active ? 'Aktif' : 'Nonaktif'}
-              </span>
             </div>
           </div>
         </div>
 
-        {/* Navigasi Tabs Modern */}
         <div className="flex border-b border-gray-200 bg-gray-50/50">
           <button onClick={() => setActiveTab('data')} className={`flex-1 py-5 text-sm font-bold transition flex items-center justify-center gap-2 ${activeTab === 'data' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
@@ -212,7 +176,6 @@ export default function ProfilePage() {
         </div>
 
         <div className="p-8">
-          {/* Konten Tab Data Diri */}
           {activeTab === 'data' && (
             <form onSubmit={handleUpdateProfile} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -277,7 +240,6 @@ export default function ProfilePage() {
             </form>
           )}
 
-          {/* Konten Tab Foto Profil */}
           {activeTab === 'photo' && (
             <div className="text-center space-y-6 py-8 max-w-md mx-auto">
               <div className="mx-auto w-40 h-40 rounded-full overflow-hidden border-4 border-gray-100 shadow-inner mb-6 bg-gray-50 flex items-center justify-center">
@@ -310,7 +272,6 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Konten Tab Keamanan */}
           {activeTab === 'security' && (
             <form onSubmit={handleUpdateSecurity} className="space-y-6 py-4 max-w-md mx-auto">
               <div className="bg-yellow-50 border border-yellow-100 p-4 rounded-xl text-left flex gap-3 mb-6">
