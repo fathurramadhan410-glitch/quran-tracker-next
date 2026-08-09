@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -19,6 +20,7 @@ export default function DashboardPage() {
   const [isBlocked, setIsBlocked] = useState(false);
   const [isParticipant, setIsParticipant] = useState(false);
 
+  const router = useRouter();
   const today = new Date().toLocaleDateString('en-CA');
 
   const fetchGlobalData = async (participants: string[]) => {
@@ -53,30 +55,15 @@ export default function DashboardPage() {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      router().push('/login');
+      router.push('/login');
       return;
     }
 
-    let { data: profileData } = await supabase
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
       .maybeSingle();
-
-    // AUTO-RECOVERY: Jika profil tidak ada di database, buatkan sekarang!
-    if (!profileData) {
-      const { data: newProfile } = await supabase
-        .from('profiles')
-        .insert({
-          id: session.user.id,
-          name: session.user.user_metadata?.full_name || 'Pengguna Baru',
-          is_active: true
-        })
-        .select('*')
-        .single();
-      
-      profileData = newProfile;
-    }
 
     setProfile(profileData);
 
@@ -136,11 +123,6 @@ export default function DashboardPage() {
     setLogs(logsData || []);
 
     setLoading(false);
-  };
-
-  // Helper router untuk redirect
-  const router = () => {
-    return window.location;
   };
 
   useEffect(() => {
@@ -354,12 +336,12 @@ export default function DashboardPage() {
               <div key={log.id} className="border-b border-gray-200 pb-2">
                 <div className="flex justify-between items-center">
                   <div>
-                    <span className="font-medium text-gray-900 text-sm md:text-base">Hal. {{log.start_page}} - {{log.end_page}}</span>
-                    <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 py-1 px-2 rounded-full">Juz {{log.juz}}</span>
+                    <span className="font-medium text-gray-900 text-sm md:text-base">Hal. {log.start_page} - {log.end_page}</span>
+                    <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 py-1 px-2 rounded-full">Juz {log.juz}</span>
                   </div>
                   <span className="text-xs md:text-sm text-gray-500">{new Date(log.log_date).toLocaleDateString('id-ID')}</span>
                 </div>
-                {log.notes && <p className="text-sm text-gray-600 mt-1">{{log.notes}}</p>}
+                {log.notes && <p className="text-sm text-gray-600 mt-1">{log.notes}</p>}
               </div>
             ))}
             {logs.length === 0 && <p className="text-gray-500 text-sm">Belum ada catatan bacaan.</p>}
