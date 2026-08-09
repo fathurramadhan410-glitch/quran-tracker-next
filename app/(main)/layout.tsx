@@ -28,6 +28,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return;
         }
 
+        // Ambil data profil dari Supabase
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
@@ -37,6 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setUser(profile || {});
         setLoading(false);
 
+        // Logika Notifikasi
         if (typeof window !== 'undefined' && 'Notification' in window) {
           if (Notification.permission === 'default') {
             Notification.requestPermission();
