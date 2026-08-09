@@ -13,6 +13,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [darkMode, setDarkMode] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintenanceMsg, setMaintenanceMsg] = useState('');
   
   const router = useRouter();
   const pathname = usePathname();
@@ -29,6 +31,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .maybeSingle();
       
       setUser(profile);
+
+      // Cek Status Maintenance
+      const { data: settings } = await supabase.from('app_settings').select('*').eq('id', 1).maybeSingle();
+      if (settings) {
+        setMaintenanceMode(settings.is_maintenance);
+        setMaintenanceMsg(settings.maintenance_message);
+      }
+
+      // Jika Maintenance AKTIF dan user BUKAN developer, tendang ke halaman maintenance
+      if (settings?.is_maintenance && !profile?.is_developer) {
+        router.push('/maintenance');
+        return;
+      }
+
       setLoading(false);
 
       if (Notification.permission === 'default') {
@@ -111,6 +127,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-400 dark:text-gray-500">Memuat aplikasi...</div>;
 
+  // Cek apakah user adalah Admin atau Developer
+  const isPrivileged = user?.is_admin || user?.is_developer;
+
   const navLinkClass = (href: string) => 
     `flex items-center gap-3 py-2.5 px-4 rounded-xl transition-all duration-200 ${
       pathname === href 
@@ -125,6 +144,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="fixed inset-0 bg-black/50 z-20 md:hidden" onClick={() => setSidebarOpen(false)}></div>
       )}
 
+      {/* Sidebar */}
       <aside className={`fixed md:relative z-30 w-64 bg-gradient-to-b from-emerald-800 to-emerald-900 border-r border-emerald-700/50 flex flex-col h-screen flex-shrink-0 transform transition-transform duration-300 ease-in-out md:translate-x-0 dark:from-slate-950 dark:to-slate-950 dark:border-slate-800 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-16 flex items-center justify-between border-b border-emerald-700/50 px-6 flex-shrink-0 dark:border-slate-800">
           <div className="flex items-center gap-2">
@@ -147,7 +167,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="text-xl">🎯</span> Target Khatam
           </Link>
           
-          {!user?.is_admin && (
+          {!isPrivileged && (
             <Link href="/quiz" onClick={() => setSidebarOpen(false)} className={navLinkClass('/quiz')}>
               <span className="text-xl">🧠</span> Quiz Harian
             </Link>
@@ -163,7 +183,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="text-xl">⚙️</span> Profil
           </Link>
           
-          {user?.is_admin && (
+          {/* Menu Admin & Developer */}
+          {isPrivileged && (
             <div className="pt-6 mt-6 border-t border-emerald-700/50 dark:border-slate-800">
               <p className="px-4 text-[10px] font-bold text-emerald-300 uppercase tracking-widest mb-2 dark:text-gray-500">Menu Admin</p>
               <div className="space-y-1">
@@ -172,6 +193,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </Link>
                 <Link href="/admin/rekap" onClick={() => setSidebarOpen(false)} className={navLinkClass('/admin/rekap')}>
                   <span className="text-xl">📋</span> Rekap Kehadiran
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Menu Khusus Developer */}
+          {user?.is_developer && (
+            <div className="pt-6 mt-6 border-t border-emerald-700/50 dark:border-slate-800">
+              <p className="px-4 text-[10px] font-bold text-purple-300 uppercase tracking-widest mb-2 dark:text-purple-400">Menu Developer</p>
+              <div className="space-y-1">
+                <Link href="/developer/system" onClick={() => setSidebarOpen(false)} className={navLinkClass('/developer/system')}>
+                  <span className="text-xl">🛠️</span> Manajemen Sistem
                 </Link>
               </div>
             </div>
@@ -191,7 +224,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button onClick={() => setSidebarOpen(true)} className="md:hidden text-gray-500 focus:outline-none dark:text-gray-400">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
-            <h2 className="font-bold text-lg md:text-xl text-gray-900 truncate dark:text-white">Dashboard Tilawah</h2>
+            <h2 className="font-bold text-lg md:text-xl text-gray-900 truncate dark:text-white">
+              {user?.is_developer ? '👑 Developer Mode' : 'Dashboard Tilawah'}
+            </h2>
           </div>
           
           <div className="flex items-center space-x-2 md:space-x-4">
@@ -214,7 +249,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <button onClick={() => setProfileMenuOpen(!profileMenuOpen)} className="flex items-center space-x-3 focus:outline-none group">
                 <span className="text-sm font-semibold text-gray-600 hidden sm:inline group-hover:text-gray-900 transition dark:text-gray-300 dark:group-hover:text-white">{user?.name}</span>
                 
-                {/* PERBAIKAN: Foto Profil muncul di Header */}
                 {user?.profile_photo_url ? (
                   <img src={user.profile_photo_url} alt="Foto" className="h-10 w-10 rounded-full object-cover ring-2 ring-white dark:ring-slate-900" />
                 ) : (
@@ -230,7 +264,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <p className="font-bold text-lg truncate">{user?.name}</p>
                     <p className="text-xs text-indigo-100 truncate">{user?.email}</p>
                     <span className="mt-2 inline-block bg-white/20 px-2 py-1 rounded-full text-[10px] font-bold uppercase">
-                      {user?.is_admin ? '👑 Admin / Guru' : '🎓 Santri'}
+                      {user?.is_developer ? '👑 Developer / Super Admin' : user?.is_admin ? '👑 Admin / Guru' : '🎓 Santri'}
                     </span>
                   </div>
                   <div className="p-4 space-y-2 text-sm">
