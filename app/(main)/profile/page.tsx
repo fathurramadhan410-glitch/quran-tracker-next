@@ -34,7 +34,7 @@ export default function ProfilePage() {
       
       // AUTO-RECOVERY: Jika profil tidak ada, buatkan otomatis!
       if (!data) {
-        const { data: newProfile } = await supabase
+        const { data: newProfile, error } = await supabase
           .from('profiles')
           .insert({
             id: session.user.id,
@@ -42,8 +42,11 @@ export default function ProfilePage() {
             is_active: true
           })
           .select('*')
-          .maybeSingle();
-        data = newProfile;
+          .single();
+          
+        if (!error && newProfile) {
+          data = newProfile;
+        }
       }
 
       setProfile(data);
@@ -145,8 +148,8 @@ export default function ProfilePage() {
   if (!profile) {
     return (
       <div className="text-center py-10">
-        <p className="text-red-500 font-bold">Data profil tidak ditemukan di database.</p>
-        <p className="text-gray-500 text-sm mt-2">Silakan hubungi Admin untuk pembuatan profil manual.</p>
+        <p className="text-red-500 font-bold">Data profil tidak dapat dimuat.</p>
+        <p className="text-gray-500 text-sm mt-2">Silakan pastikan Anda sudah menjalankan SQL Trigger di Supabase.</p>
         <button onClick={() => router.push('/login')} className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg">Keluar</button>
       </div>
     );
