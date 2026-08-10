@@ -29,7 +29,23 @@ export default function ProfilePage() {
         router.push('/login');
         return;
       }
-      const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+      
+      let { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+      
+      // AUTO-RECOVERY: Jika profil tidak ada, buatkan otomatis!
+      if (!data) {
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .insert({
+            id: session.user.id,
+            name: session.user.user_metadata?.full_name || 'Pengguna',
+            is_active: true
+          })
+          .select('*')
+          .maybeSingle();
+        data = newProfile;
+      }
+
       setProfile(data);
       setName(data?.name || '');
       setPhone(data?.phone_number || '');

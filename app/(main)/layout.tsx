@@ -28,12 +28,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return;
         }
 
-        const { data: profile } = await supabase
+        // Ambil data profil dari Supabase
+        let { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .maybeSingle();
         
+        // AUTO-RECOVERY: Jika profil tidak ada, buatkan otomatis!
+        if (!profile) {
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .insert({
+              id: session.user.id,
+              name: session.user.user_metadata?.full_name || 'Pengguna',
+              is_active: true
+            })
+            .select('*')
+            .maybeSingle();
+          
+          profile = newProfile;
+        }
+
         setUser(profile || {});
         setLoading(false);
 
