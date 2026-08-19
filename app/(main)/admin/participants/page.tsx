@@ -163,7 +163,7 @@ export default function AdminParticipantsPage() {
       {/* Card Modern untuk Tabel */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900">👥 Manajemen Data Peserta</h2>
+          <h2 className="text-xl font-bold text-gray-900">Manajemen Data Peserta</h2>
           <p className="text-sm text-gray-500 mt-1">Total {users.length} pengguna terdaftar.</p>
         </div>
 
@@ -172,8 +172,10 @@ export default function AdminParticipantsPage() {
             <thead className="bg-gray-50/50">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Foto & Nama</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Kontak & Alamat</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Pekerjaan & Pendidikan</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Kontak</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Alamat</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Pekerjaan</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Pendidikan</th>
                 <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
@@ -210,31 +212,27 @@ export default function AdminParticipantsPage() {
                     </div>
                   </td>
 
-                  {/* Kolom 2: Kontak & Alamat */}
+                  {/* Kolom 2: Kontak (No. HP) */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 align-middle">
+                    {u.phone_number ? u.phone_number : <EmptyData />}
+                  </td>
+
+                  {/* Kolom 3: Alamat */}
                   <td className="px-6 py-4 whitespace-normal text-sm text-gray-700 max-w-[200px] align-middle">
-                    <div className="flex items-center gap-2">
-                      <span>📞</span>
-                      {u.phone_number ? <span>{u.phone_number}</span> : <EmptyData />}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span>🏠</span>
-                      {u.address ? <span>{u.address}</span> : <EmptyData />}
-                    </div>
+                    {u.address ? u.address : <EmptyData />}
                   </td>
 
-                  {/* Kolom 3: Pekerjaan & Pendidikan */}
-                  <td className="px-6 py-4 whitespace-normal text-sm text-gray-700 max-w-[150px] align-middle">
-                    <div className="flex items-center gap-2">
-                      <span>💼</span>
-                      {u.occupation ? <span>{u.occupation}</span> : <EmptyData />}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span>🎓</span>
-                      {u.education ? <span>{u.education}</span> : <EmptyData />}
-                    </div>
+                  {/* Kolom 4: Pekerjaan */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 align-middle">
+                    {u.occupation ? u.occupation : <EmptyData />}
                   </td>
 
-                  {/* Kolom 4: Aksi (Dropdown) */}
+                  {/* Kolom 5: Pendidikan */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 align-middle">
+                    {u.education ? u.education : <EmptyData />}
+                  </td>
+
+                  {/* Kolom 6: Aksi (Dropdown) */}
                   <td className="px-6 py-4 whitespace-nowrap text-center relative" onClick={(e) => e.stopPropagation()}>
                     <button 
                       onClick={() => setOpenActionId(openActionId === u.id ? null : u.id)}
@@ -287,7 +285,7 @@ export default function AdminParticipantsPage() {
               
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500 text-sm">Belum ada peserta terdaftar.</td>
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 text-sm">Belum ada peserta terdaftar.</td>
                 </tr>
               )}
             </tbody>
